@@ -1,0 +1,973 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>巡回点検</title>
+<meta name="theme-color" content="#f3f6f9">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+:root{--navy:#18365b;--blue:#2f5f92;--bg:#f3f6f9;--card:#fff;--text:#1d2939;--muted:#667085;--line:#d8e0e8;--ok:#26734d;--warn:#a06a12;--bad:#a23b3b}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif}
+.app{max-width:560px;margin:auto;min-height:100vh;padding-bottom:92px}.top{background:linear-gradient(145deg,#fff,#eef4fa);padding:calc(18px + env(safe-area-inset-top)) 20px 20px;border-bottom:1px solid var(--line)}
+.brand{font-size:13px;color:var(--blue);font-weight:800;letter-spacing:.08em}.top h1{font-size:27px;margin:6px 0 3px}.sub{color:var(--muted);font-size:14px}
+main{padding:16px}.card{background:var(--card);border:1px solid #e3e8ef;border-radius:18px;padding:16px;margin-bottom:13px;box-shadow:0 5px 18px rgba(30,55,85,.06)}
+button,input,textarea{font:inherit} button{cursor:pointer}.primary{width:100%;border:0;border-radius:14px;padding:15px;background:var(--navy);color:#fff;font-weight:800;font-size:16px}
+.secondary{width:100%;border:1px solid var(--line);border-radius:14px;padding:13px;background:#fff;color:var(--navy);font-weight:700}
+label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#475467}input,textarea{width:100%;border:1px solid #cfd8e3;border-radius:12px;padding:12px;background:#fff}textarea{min-height:82px;resize:vertical}
+.row{display:flex;gap:9px}.row>*{flex:1}.hidden{display:none!important}.property{display:flex;justify-content:space-between;gap:12px;align-items:center}.property b{display:block}.property small{color:var(--muted)}
+.pill{font-size:12px;background:#eaf1f8;color:var(--navy);padding:5px 8px;border-radius:999px;white-space:nowrap}
+.progress{height:8px;background:#dfe6ee;border-radius:10px;overflow:hidden;margin:12px 0}.progress i{display:block;height:100%;background:var(--blue);width:0}
+.category-title{font-size:20px;font-weight:850;margin:0 0 4px}.category-desc{font-size:13px;color:var(--muted);margin-bottom:13px}
+.status{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.status button{border:1px solid var(--line);background:#fff;border-radius:12px;padding:12px 2px;font-weight:850}.status button.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.item{padding:12px 0;border-top:1px solid #edf0f3}.item:first-of-type{border-top:0}.item-head{font-weight:750;margin-bottom:8px}.mini-status{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.mini-status button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 2px;font-weight:800;font-size:13px}.mini-status button.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.footer{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));z-index:5}.footer .inner{max-width:532px;margin:auto;display:flex;gap:9px}.footer button{flex:1}
+.notice{font-size:13px;color:var(--muted);text-align:center;margin-top:8px}.badge{display:inline-block;padding:4px 8px;border-radius:9px;background:#eef3f8;color:var(--navy);font-size:12px;font-weight:800}
+.summary-line{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #edf0f3}.danger{color:var(--bad);font-weight:800}
+
+.photo-tools{margin-top:9px}
+.photo-add{width:100%;border:1px dashed #9fb0c3;background:#f7fafe;color:var(--navy);border-radius:11px;padding:10px;font-weight:800}
+.photo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:9px}
+.photo-card{border:1px solid #dfe6ee;border-radius:12px;padding:7px;background:#fff;overflow:hidden}
+.photo-card img{display:block;width:100%;height:105px;object-fit:cover;border-radius:8px;background:#eef2f6}
+.photo-card textarea{min-height:48px;padding:8px;margin-top:6px;font-size:12px}
+.photo-actions{display:flex;justify-content:space-between;align-items:center;margin-top:5px;font-size:11px;color:var(--muted)}
+.photo-delete{border:0;background:#fff;color:var(--bad);font-weight:800;padding:4px}
+.photo-count{font-size:11px;color:var(--muted);margin-top:5px}
+
+
+.searchbox{margin-bottom:12px}.property-actions{display:flex;gap:6px;margin-top:8px}
+.smallbtn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px 10px;font-size:12px;font-weight:750;color:var(--navy)}
+.smallbtn.delete{color:var(--bad)}.prop-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.meta-chip{font-size:11px;padding:4px 7px;border-radius:8px;background:#f0f4f8;color:#526174}
+.meta-chip.alert{background:#fff1f1;color:var(--bad)}.meta-chip.warn{background:#fff7e8;color:#8b5d0b}
+.list-title{font-size:13px;font-weight:850;color:#667085;margin:4px 2px 9px}
+
+@media (min-width:768px){
+  .wrap{max-width:980px}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .item{padding:16px 18px}
+  textarea{min-height:92px}
+}
+.home-nav{display:flex;justify-content:flex-end;margin-bottom:10px}
+.home-btn{border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:11px;padding:9px 13px;font-weight:800;font-size:13px}
+.required-note{font-size:12px;font-weight:800;color:#a23b3b;margin-top:6px}
+.month-card{border:1px solid #d8e0e8;border-radius:16px;padding:15px;margin:10px 0;background:#fff}
+.month-card h3{margin:0 0 7px;color:#18365b}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef3f8;font-size:12px;font-weight:800;margin-right:5px}
+.owner-text{min-height:100px}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top"><div class="brand">PROPERTY INSPECTION · V1.8.6</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone 現場点検 V1.8.6</div></header>
+<main>
+<section id="home">
+ <div class="card"><h2 style="margin-top:0">定期巡回を開始</h2><p class="sub">登録済みの物件を選択して、現場で点検結果を記録します。</p><button class="primary" onclick="showProperties()">巡回点検を開始</button></div>
+ <div class="card" id="draftCard"><div class="property"><div><b>保存中の巡回</b><small id="draftInfo">現在、作業中の巡回はありません</small></div><button class="smallbtn" id="resumeBtn" onclick="resumeDraft()" style="display:none">再開</button></div></div>
+ <div class="card"><div class="property"><div><b>物件登録</b><small>登録は最初の1回だけ。次回から一覧から選べます。</small></div><span class="pill">繰り返し利用</span></div></div>
+ <button class="secondary" onclick="showAddProperty()">＋ 物件を登録</button>
+ <button class="primary" style="margin-top:10px" onclick="showMonthly()">月次報告書を作る</button>
+ <button class="secondary" style="margin-top:10px" onclick="showSavedHistory()">保存済み巡回履歴</button>
+ <div class="card" style="margin-top:13px">
+  <b>物件マスター</b><p class="sub">物件一覧だけを別のiPhoneへ移せます。巡回結果や写真は含みません。</p>
+  <div class="row"><button class="secondary" onclick="exportProperties()">書き出す</button><button class="secondary" onclick="document.getElementById('propertyImport').click()">読み込む</button></div>
+ </div>
+ <input id="propertyImport" type="file" accept=".json,application/json" class="hidden" onchange="importProperties(event)">
+</section>
+
+<section id="properties" class="hidden">
+ <div class="home-nav"><button class="home-btn" onclick="goHome()">⌂ ホーム</button></div>
+ <div class="card searchbox"><input id="propertySearch" placeholder="物件名・住所で検索" oninput="renderProperties(this.value)"></div>
+ <div class="list-title">登録済み物件</div>
+ <div id="propertyList"></div>
+ <button class="secondary" onclick="showAddProperty()">＋ 新しい物件を登録</button>
+ <p class="notice">物件登録は初回のみ。次回以降は一覧から選択できます。</p>
+</section>
+
+
+<section id="savedHistory" class="hidden">
+ <div class="home-nav"><button class="home-btn" onclick="goHome()">⌂ ホーム</button></div>
+ <h1>保存済み巡回履歴</h1>
+ <p class="sub">このiPhone・iPad内に保存されている巡回記録です。月次報告書はこの履歴から作成します。</p>
+ <div class="card"><label>物件</label><select id="historyProperty" onchange="renderSavedHistory()"></select></div>
+ <div id="savedHistoryList"></div>
+</section>
+
+<section id="monthly" class="hidden">
+ <div class="home-nav"><button class="home-btn" onclick="goHome()">⌂ ホーム</button></div>
+ <h1>月次管理報告書</h1>
+ <p class="sub">保存された巡回履歴から、オーナー様向けの月次報告書を作成します。</p>
+ <div class="card">
+  <label>物件</label><select id="monthProperty"></select>
+  <label>対象月</label><input id="monthValue" type="month">
+  <button class="primary" onclick="buildMonthlyView()">巡回履歴を集約</button>
+ </div>
+ <div id="monthlyResult"></div>
+</section>
+<section id="addProperty" class="hidden">
+ <div class="home-nav"><button class="home-btn" onclick="goHome()">⌂ ホーム</button></div>
+ <div class="card"><label>物件名</label><input id="propName" placeholder="例：サンライズマンション"><label>住所</label><input id="propAddress" placeholder="例：東京都品川区…"><label>管理メモ（任意）</label><textarea id="propMemo" placeholder="巡回時の注意事項など"></textarea></div>
+ <button class="primary" onclick="saveProperty()">この物件を登録</button>
+</section>
+
+<section id="inspection" class="hidden">
+ <div class="home-nav"><button class="home-btn" onclick="goHome()">⌂ ホーム</button></div>
+ <div class="card"><div class="property"><div><b id="insProp"></b><small id="insDate"></small></div><span class="badge" id="catCounter"></span></div><div class="progress"><i id="progressBar"></i></div></div>
+ <div id="categoryCard"></div>
+</section>
+
+<section id="summary" class="hidden">
+ <div class="home-nav"><button class="home-btn" onclick="goHome()">⌂ ホーム</button></div>
+ <div class="card"><h2 style="margin-top:0">巡回内容の確認</h2><div id="completionWarning"></div><div id="summaryBody"></div></div>
+ <div class="card"><label>総合コメント</label><textarea id="overall" placeholder="今回の巡回についての総合コメント"></textarea></div>
+ <button class="primary" onclick="saveInspectionDataOnly()">点検データを保存</button>
+ <button class="secondary" style="margin-top:9px" id="pdfShareBtn" onclick="validatedSharePDF()">PDFを作成して会社へ送る</button>
+ <button class="secondary" style="margin-top:9px" onclick="validatedPreviewPDF()">PDFを作成して確認</button>
+ <button class="secondary" style="margin-top:9px" onclick="discardCompleted()">送信・保存済みの巡回データを削除</button>
+ <p class="notice">PDFはiPhone内で作成します。写真や点検データを外部サーバーへ送信しません。共有画面で「メール」等を選んで会社へ送信してください。</p>
+</section>
+</main>
+<div class="footer hidden" id="footer"><div class="inner"><button class="secondary" onclick="prevCategory()">戻る</button><button class="primary" onclick="nextCategory()">次へ</button></div></div>
+
+<input id="photoInput" type="file" accept="image/*" capture="environment" multiple class="hidden" onchange="handlePhotos(event)">
+
+</div>
+<script>
+const CATEGORIES=[
+ {name:"建物外周",desc:"建物の外周・外観を確認",items:["外壁・ひび割れ・破損","建物周囲の清掃状況","放置物・不法投棄","雨樋・排水まわり"]},
+ {name:"エントランス",desc:"入口・ポスト・掲示板等を確認",items:["入口扉・オートロック","集合ポスト・宅配ボックス","掲示板・掲示物","床・壁・清掃状況"]},
+ {name:"共用廊下・階段",desc:"共用廊下・階段を確認",items:["廊下・階段の清掃","手すり・床・壁の破損","私物・放置物","共用灯"]},
+ {name:"ゴミ置場",desc:"ゴミ置場の状態を確認",items:["分別状況","収集日以外のごみ","粗大ごみ・不法投棄","清掃・臭気"]},
+ {name:"駐輪場",desc:"駐輪場の状態を確認",items:["放置自転車","整理状況・ステッカー貼付","設備・照明"]},
+ {name:"植栽・外構",desc:"植栽・外構の状態を確認",items:["植栽・雑草","フェンス・外構等"]},
+ {name:"その他",desc:"その他の共用部・異常を確認",items:["漏水・水濡れ","異臭・異音","その他共用設備"]}
+];
+const STATUS=["○","△","×","－"];
+let current=0, draft=null, editingPropertyId=null;
+function sections(id){["home","properties","savedHistory","monthly","addProperty","inspection","summary"].forEach(x=>document.getElementById(x)?.classList.toggle("hidden",x!==id));document.getElementById("footer").classList.toggle("hidden",id!=="inspection")}
+
+async function exportInspectionBackup(){
+ try{
+  const rows=await idbGetAllHistories();
+  const payload={format:"junkai-backup-v190",exportedAt:new Date().toISOString(),
+    properties:JSON.parse(localStorage.getItem("properties")||"[]"),
+    histories:rows};
+  const blob=new Blob([JSON.stringify(payload)],{type:"application/json"});
+  const file=new File([blob],"junkai_backup_"+new Date().toISOString().slice(0,10)+".json",{type:"application/json"});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    await navigator.share({title:"巡回点検バックアップ",files:[file]});
+  }else{
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=file.name;a.click();
+  }
+ }catch(e){alert("バックアップを書き出せませんでした。")}
+}
+function goHome(){
+ if(draft) saveDraft();
+ sections("home");
+ title("巡回点検","iPhone・iPad 現場点検 V1.8.6");
+ updateHome();
+ scrollTo(0,0);
+}
+function refreshHome(){goHome()}
+function title(t,s=""){document.getElementById("pageTitle").textContent=t;document.getElementById("pageSub").textContent=s}
+function props(){return JSON.parse(localStorage.getItem("inspection_properties")||"[]")}
+function showProperties(){sections("properties");title("物件を選択","巡回する物件を選んでください");renderProperties()}
+function showAddProperty(id=null){
+ editingPropertyId=id;sections("addProperty");
+ if(id){let p=props().find(x=>x.id===id);title("物件を編集","登録済み情報を変更");propName.value=p?.name||"";propAddress.value=p?.address||"";propMemo.value=p?.memo||"";}
+ else{title("物件登録","登録は最初の一度だけ");propName.value=propAddress.value=propMemo.value="";}
+}
+function saveProperty(){
+ let n=propName.value.trim();if(!n)return alert("物件名を入力してください");
+ let p=props();
+ if(editingPropertyId){let i=p.findIndex(x=>x.id===editingPropertyId);if(i>=0)p[i]={...p[i],name:n,address:propAddress.value.trim(),memo:propMemo.value.trim()};}
+ else p.push({id:crypto.randomUUID?crypto.randomUUID():Date.now().toString(),name:n,address:propAddress.value.trim(),memo:propMemo.value.trim()});
+ localStorage.setItem("inspection_properties",JSON.stringify(p));editingPropertyId=null;showProperties();
+}
+function getHistoryForProperty(id){return []} // V1.8: 履歴本体はIndexedDBで管理
+function previousStats(id){
+ let h=getHistoryForProperty(id);if(!h.length)return {date:"未巡回",bad:0,warn:0};
+ let last=h[0],bad=0,warn=0;(last.categories||[]).forEach(c=>(c.items||[]).forEach(i=>{if(i.status==="×")bad++;if(i.status==="△")warn++;}));
+ return {date:last.date||"記録あり",bad,warn};
+}
+function renderProperties(q=""){
+ let p=props(),el=document.getElementById("propertyList");q=(q||"").trim().toLowerCase();
+ if(q)p=p.filter(x=>(x.name+" "+(x.address||"")).toLowerCase().includes(q));
+ if(!p.length){el.innerHTML='<div class="card sub">該当する物件がありません。</div>';return}
+ el.innerHTML=p.map(x=>{let st=previousStats(x.id);return `<div class="card"><div class="property" onclick="startInspection('${x.id}')"><div><b>${esc(x.name)}</b><small>${esc(x.address||"住所未登録")}</small><div class="prop-meta"><span class="meta-chip">前回：${esc(st.date)}</span>${st.bad?`<span class="meta-chip alert">× ${st.bad}件</span>`:""}${st.warn?`<span class="meta-chip warn">△ ${st.warn}件</span>`:""}</div></div><span class="pill">巡回開始 ›</span></div><div class="property-actions"><button class="smallbtn" onclick="event.stopPropagation();showAddProperty('${x.id}')">編集</button><button class="smallbtn delete" onclick="event.stopPropagation();deleteProperty('${x.id}')">削除</button></div></div>`}).join("");
+}
+function deleteProperty(id){
+ let p=props().find(x=>x.id===id);if(!p)return;
+ if(!confirm(`「${p.name}」を物件一覧から削除しますか？\n過去の巡回履歴は削除しません。`))return;
+ localStorage.setItem("inspection_properties",JSON.stringify(props().filter(x=>x.id!==id)));renderProperties(document.getElementById("propertySearch")?.value||"");
+}
+function startInspection(id){let p=props().find(x=>x.id===id);draft={id:Date.now().toString(),property:p,date:(()=>{let d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`})(),categories:CATEGORIES.map(c=>({name:c.name,comment:"",representativePhotos:[],items:c.items.map(i=>({name:i,status:"",photos:[]}))})),overall:""};current=0;saveDraft();sections("inspection");renderCategory()}
+
+function moveCategory(delta){
+  if(!requirePhotoCommentBeforeNext()) return;
+  const next=current+delta;
+  if(next<0 || next>=draft.categories.length) return;
+  current=next;
+  renderCategory();
+}
+
+function renderCategory(){let c=CATEGORIES[current],d=draft.categories[current];title("巡回点検",draft.property.name);insProp.textContent=draft.property.name;insDate.textContent=draft.date;catCounter.textContent=`${current+1} / ${CATEGORIES.length}`;progressBar.style.width=((current+1)/CATEGORIES.length*100)+"%";categoryCard.innerHTML=`<div class="card"><div class="category-title">${c.name}</div><div class="category-desc">${c.desc}</div><div class="card" style="background:#f7f9fc"><b>📷 代表写真</b><div class="sub">${c.name==="その他"?"異常がある場合のみ撮影":"月次報告用に代表写真を1枚以上撮影してください"}</div><button class="secondary" onclick="chooseRepresentativePhoto()">代表写真を撮影</button><div class="photo-grid">${(d.representativePhotos||[]).map((ph,j)=>`<div class="photo-card"><img src="${ph.data||ph.src||ph}"><div class="photo-actions"><span>代表写真 ${j+1}</span><button class="photo-delete" onclick="deleteRepresentativePhoto(${j})">削除</button></div></div>`).join("")}</div></div>${c.items.map((it,i)=>`<div class="item"><div class="item-head">${it}</div><div class="mini-status">${STATUS.map(s=>`<button class="${d.items[i].status===s?"active":""}" onclick="setStatus(${i},'${s}')">${s}</button>`).join("")}</div>${(d.items[i].status==="△"||d.items[i].status==="×")?`<div class="item-comment-box"><label style="font-weight:800;color:${d.items[i].status==="×"?"#a23b3b":"#a06a12"}">${d.items[i].status==="×"?"要対応コメント":"経過観察コメント"}（必須）</label><textarea data-item-comment="${i}" placeholder="状況・対応内容を入力してください" oninput="setItemComment(${i},this.value)">${esc(d.items[i].comment||"")}</textarea></div>`:""}<div class="photo-tools"><button class="photo-add" onclick="choosePhotos(${i})">📷 写真を追加</button>${renderPhotos(i)}</div></div>`).join("")}<label>このカテゴリーのコメント</label><textarea id="catComment" placeholder="気付いた点・対応が必要な内容など" oninput="setComment(this.value)">${esc(d.comment)}</textarea></div>`}
+
+let photoTargetItem=null;
+
+function setItemComment(i,value){let it=draft.categories[current]?.items?.[i];if(it){it.comment=value;saveDraft();}}
+function focusItemComment(i){setTimeout(()=>{let el=document.querySelector(`[data-item-comment="${i}"]`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.focus();}},80);}
+function validateCurrentItemRequirements(){
+ let cat=draft.categories[current];if(!cat)return true;
+ for(let i=0;i<cat.items.length;i++){
+  let it=cat.items[i];
+  if(it.status==="×"&&!(it.photos||[]).length){alert("「× 要対応」の項目には写真が必須です。");return false;}
+  if((it.status==="△"||it.status==="×")&&!(it.comment||"").trim()){alert((it.status==="×"?"× 要対応":"△ 経過観察")+"の項目にはコメントが必須です。");focusItemComment(i);return false;}
+ }
+ return true;
+}
+function chooseRepresentativePhoto(){photoTargetItem="representative";photoInput.click()}
+function deleteRepresentativePhoto(j){let d=draft.categories[current];d.representativePhotos=d.representativePhotos||[];d.representativePhotos.splice(j,1);saveDraft();renderCategory()}
+function choosePhotos(i){
+ photoTargetItem=i;
+ let input=document.getElementById("photoInput");
+ if(input){
+   input.value="";
+   input.setAttribute("accept","image/*");
+   input.setAttribute("capture","environment");
+   input.click();
+ }
+}
+async function handlePhotos(e){
+ if(photoTargetItem==="representative"){let d=draft.categories[current];d.representativePhotos=d.representativePhotos||[];let fs=e?.target?.files||e;for(const f of Array.from(fs||[])){try{d.representativePhotos.push({data:await compressImage(f),monthlyCandidate:true})}catch(e){}}photoTargetItem=null;saveDraft();renderCategory();if(photoInput)photoInput.value="";return}
+
+ let files=[...e.target.files];
+ if(photoTargetItem===null||!files.length)return;
+ const completedPhotoItem=photoTargetItem;
+ let item=draft.categories[current].items[completedPhotoItem];
+ if(!item.photos)item.photos=[];
+ for(const file of files){
+   try{
+     let data=await compressImage(file,1280,.76);
+     item.photos.push({id:(crypto.randomUUID?crypto.randomUUID():Date.now().toString()+Math.random()),data:data,comment:""});
+   }catch(err){alert("写真を読み込めませんでした。");}
+ }
+ saveDraft();
+ renderCategory();
+ photoTargetItem=null;
+}
+function compressImage(file,maxSide,quality){
+ return new Promise((resolve,reject)=>{
+   let reader=new FileReader();
+   reader.onerror=reject;
+   reader.onload=()=>{
+     let img=new Image();
+     img.onerror=reject;
+     img.onload=()=>{
+       let w=img.width,h=img.height,scale=Math.min(1,maxSide/Math.max(w,h));
+       let cw=Math.round(w*scale),ch=Math.round(h*scale);
+       let canvas=document.createElement("canvas");canvas.width=cw;canvas.height=ch;
+       let ctx=canvas.getContext("2d");ctx.drawImage(img,0,0,cw,ch);
+       resolve(canvas.toDataURL("image/jpeg",quality));
+     };
+     img.src=reader.result;
+   };
+   reader.readAsDataURL(file);
+ });
+}
+function renderPhotos(i){
+ let photos=draft.categories[current].items[i].photos||[];
+ if(!photos.length)return `<div class="photo-count">写真なし</div>`;
+ return `<div class="photo-count">${photos.length}枚</div><div class="photo-grid">${photos.map((p,j)=>`<div class="photo-card"><img src="${p.data}" alt="点検写真"><div class="required-note">写真メモ（任意）</div><textarea placeholder="写真メモ（任意）" oninput="photoComment(${i},${j},this.value)">${esc(p.comment||"")}</textarea><div style="margin-top:7px"><button class="smallbtn" onclick="toggleMonthlyCandidate(${i},${j})">${p.monthlyCandidate?"★ 月次掲載候補":"☆ 月次掲載候補"}</button></div><div class="photo-actions"><span>写真 ${j+1}</span><button class="photo-delete" onclick="deletePhoto(${i},${j})">削除</button></div></div>`).join("")}</div>`;
+}
+function toggleMonthlyCandidate(i,pi){
+ let ph=draft.categories[draft.categoryIndex].items[i].photos[pi];
+ ph.monthlyCandidate=!ph.monthlyCandidate;saveDraft();renderCategory();
+}
+function photoComment(i,j,v){
+ let p=draft.categories[current].items[i].photos[j];
+ p.comment=v;
+ saveDraft();
+}
+function deletePhoto(i,j){
+ let item=draft.categories[current].items[i];
+ if(!item || !item.photos) return;
+ item.photos.splice(j,1);
+
+ // ×項目の最後の写真を削除したら、判定も未選択へ戻す
+ if(item.status==="×" && item.photos.length===0){
+   item.status="";
+   alert("要対応（×）の写真がなくなったため、判定を未選択に戻しました。");
+ }
+
+ saveDraft();
+ renderCategory();
+}
+
+
+function focusRequiredComment(itemIndex){
+  const it=draft.categories[current]?.items?.[itemIndex];
+  if(!it) return;
+
+  /* 写真を撮ったら、その写真自身のコメント欄を最優先で入力 */
+  const item=draft.categories[current]?.items?.[itemIndex];
+  const photoIndex=Math.max(0,(item?.photos||[]).length-1);
+  const candidates=[...document.querySelectorAll("textarea,input[type='text']")];
+  const ta=candidates.find(el=>{
+    const a=(el.getAttribute("oninput")||"")+(el.getAttribute("onchange")||"");
+    return a.includes(`photoComment(${itemIndex},${photoIndex}`) || a.includes(`photoComment(${itemIndex}, ${photoIndex}`);
+  }) || document.querySelector("#category textarea") ||
+       document.querySelector("#categoryBody textarea") ||
+       document.querySelector('textarea[placeholder*="コメント"]');
+
+  if(ta){
+    ta.placeholder="この写真の状況・内容を入力してください（必須）";
+    ta.required=true;
+    let note=ta.parentElement?.querySelector(".required-note.v165");
+    if(!note && ta.parentElement){
+      note=document.createElement("div");
+      note.className="required-note v165";
+      note.textContent="写真を添付した場合：写真コメント必須";
+      ta.insertAdjacentElement("beforebegin",note);
+    }
+    setTimeout(()=>{
+      ta.scrollIntoView({behavior:"smooth",block:"center"});
+      ta.focus();
+    },180);
+  } else {
+    setTimeout(()=>alert("写真を登録しました。続けて要対応のコメントを入力してください。"),100);
+  }
+}
+
+
+function categoryPhotoRequirementMessage(){
+ let cat=draft?.categories?.[draft.categoryIndex];
+ if(!cat || cat.name==="その他") return "";
+ return (cat.representativePhotos||[]).length ? "" : `「${cat.name}」の代表写真を1枚以上撮影してください。`;
+}
+function requireCategoryPhotoBeforeNext(){
+ let msg=categoryPhotoRequirementMessage();
+ if(msg){alert(msg);return false}
+ return true;
+}
+function pendingPhotoComment(){
+  const cat=draft.categories[current];
+  if(!cat) return null;
+  for(let i=0;i<cat.items.length;i++){
+    const photos=cat.items[i].photos||[];
+    for(let j=0;j<photos.length;j++){
+      if(!(photos[j].comment||"").trim()) return {itemIndex:i,photoIndex:j,item:cat.items[i]};
+    }
+  }
+  return null;
+}
+function requirePhotoCommentBeforeNext(){return validateCurrentItemRequirements();}
+
+function setStatus(i,s){
+ let item=draft.categories[current].items[i];
+ if((item.status==="×"||item.status==="△")&&s!==item.status){
+  item.status=s;if(s!=="△"&&s!=="×")item.comment="";photoTargetItem=null;saveDraft();renderCategory();return;
+ }
+ if(!requirePhotoCommentBeforeNext())return;
+ item.status=s;saveDraft();renderCategory();
+ if(s==="×"&&!(item.photos||[]).length){
+  photoTargetItem=i;let input=document.getElementById("photoInput");
+  if(input){input.value="";input.setAttribute("accept","image/*");input.setAttribute("capture","environment");input.click();}
+ }else if(s==="△"||s==="×"){focusItemComment(i);}
+}
+function setComment(v){draft.categories[current].comment=v;saveDraft()}
+function nextCategory(){
+ if(!requirePhotoCommentBeforeNext()) return;if(current<CATEGORIES.length-1){current++;renderCategory();scrollTo(0,0)}else showSummary()}
+function prevCategory(){
+ if(!requirePhotoCommentBeforeNext()) return;if(current>0){current--;renderCategory();scrollTo(0,0)}else{sections("properties");document.getElementById("footer").classList.add("hidden");title("物件を選択","巡回する物件を選んでください");renderProperties()}}
+function showSummary(){
+ sections("summary");title("巡回確認",draft.property.name);
+ let h="",un=0;
+ draft.categories.forEach(c=>{
+   let x=c.items.filter(i=>i.status==="×").length,w=c.items.filter(i=>i.status==="△").length,u=c.items.filter(i=>!i.status).length;
+   un+=u;let pc=c.items.reduce((n,i)=>n+((i.photos||[]).length),0);
+   h+=`<div class="summary-line"><span><b>${c.name}</b></span><span>${x?`<span class="danger">× ${x}</span>`:""} ${w?`△ ${w}`:""} ${u?`未 ${u}`:""} ${pc?`📷 ${pc}`:""}</span></div>`
+ });
+ summaryBody.innerHTML=h;
+ completionWarning.innerHTML=un?`<div style="padding:11px;border-radius:12px;background:#fff3e5;color:#8a5a00;font-weight:800;margin-bottom:10px">未点検が ${un} 件あります</div>`:`<div style="padding:11px;border-radius:12px;background:#edf8f2;color:#26734d;font-weight:800;margin-bottom:10px">全項目の入力が完了しています</div>`;
+ overall.value=draft.overall||"";overall.oninput=()=>{draft.overall=overall.value;saveDraft()}
+}
+
+function exportProperties(){
+ let data={type:"junkai-property-master",version:1,exportedAt:new Date().toISOString(),properties:props()};
+ let blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+ let file=new File([blob],"巡回点検_物件マスター.json",{type:"application/json"});
+ if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
+   navigator.share({title:"巡回点検 物件マスター",files:[file]}).catch(()=>{});
+ }else{
+   let a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),30000);
+ }
+}
+async function importProperties(e){
+ let file=e.target.files?.[0];e.target.value="";if(!file)return;
+ try{
+   let data=JSON.parse(await file.text());
+   if(data.type!=="junkai-property-master"||!Array.isArray(data.properties))throw new Error();
+   let current=props(),map=new Map(current.map(p=>[p.id,p]));
+   data.properties.forEach(p=>{if(p&&p.id&&p.name)map.set(p.id,{id:p.id,name:p.name,address:p.address||"",memo:p.memo||""})});
+   localStorage.setItem("inspection_properties",JSON.stringify([...map.values()]));
+   alert(`${data.properties.length}件の物件マスターを読み込みました。`);refreshHome();
+ }catch(err){alert("巡回点検の物件マスターファイルを読み込めませんでした。")}
+}
+
+function collectReportPhotos(){
+ let out=[];
+ draft.categories.forEach(c=>c.items.forEach(i=>(i.photos||[]).forEach(p=>out.push({
+   category:c.name,item:i.name,status:i.status||"－",comment:p.comment||c.comment||"",data:p.data
+ }))));
+ return out;
+}
+function statusCounts(){
+ let r={"○":0,"△":0,"×":0,"－":0,"未":0};
+ draft.categories.forEach(c=>c.items.forEach(i=>{let k=i.status||"未";r[k]=(r[k]||0)+1}));
+ return r;
+}
+function wrapCanvasText(ctx,text,maxWidth){
+ let chars=Array.from(String(text||"")), lines=[],line="";
+ for(const ch of chars){let test=line+ch;if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=ch}else line=test}
+ if(line)lines.push(line); return lines;
+}
+function loadImg(src){return new Promise((resolve,reject)=>{let i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=src})}
+function drawCoverHeader(ctx,pageNo,total){
+ ctx.fillStyle="#18365b";ctx.fillRect(0,0,1240,120);
+ ctx.fillStyle="#fff";ctx.font="700 38px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";ctx.fillText("巡回点検報告書",70,74);
+ ctx.font="500 20px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";ctx.textAlign="right";ctx.fillText(`${pageNo} / ${total}`,1170,72);ctx.textAlign="left";
+}
+
+const HISTORY_KEY="inspection_history_v16";
+const DB_NAME="junkai_inspection_db", DB_VERSION=1, HISTORY_STORE="histories";
+let _dbPromise=null;
+function openJunkaiDB(){
+ if(_dbPromise)return _dbPromise;
+ _dbPromise=new Promise((resolve,reject)=>{
+  let req=indexedDB.open(DB_NAME,DB_VERSION);
+  req.onupgradeneeded=()=>{let db=req.result;if(!db.objectStoreNames.contains(HISTORY_STORE)){let st=db.createObjectStore(HISTORY_STORE,{keyPath:"id"});st.createIndex("propertyId","property.id",{unique:false});st.createIndex("date","date",{unique:false})}};
+  req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+ });
+ return _dbPromise;
+}
+function normalizeHistoryDate(v){
+ let m=String(v||"").match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+ return m?`${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`:String(v||"");
+}
+async function migrateLegacyHistories(){
+ if(localStorage.getItem("history_idb_migrated_v18")==="1")return;
+ let legacy=[];try{legacy=JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]")}catch(e){}
+ if(legacy.length){
+  let db=await openJunkaiDB(),tx=db.transaction(HISTORY_STORE,"readwrite"),st=tx.objectStore(HISTORY_STORE);
+  legacy.forEach((h,n)=>{h.date=normalizeHistoryDate(h.date);h.id=h.id||("legacy_"+Date.now()+"_"+n);st.put(h)});
+  await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});
+ }
+ localStorage.setItem("history_idb_migrated_v18","1");
+}
+async function histories(){
+ await migrateLegacyHistories();
+ let db=await openJunkaiDB();
+ return await new Promise((resolve,reject)=>{let r=db.transaction(HISTORY_STORE,"readonly").objectStore(HISTORY_STORE).getAll();r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error)});
+}
+async function saveHistoryRecord(snap){
+ await migrateLegacyHistories();let db=await openJunkaiDB();
+ let all=await histories(),same=all.find(v=>v.property?.id===snap.property.id&&normalizeHistoryDate(v.date)===normalizeHistoryDate(snap.date));
+ if(same)snap.id=same.id;
+ return await new Promise((resolve,reject)=>{let tx=db.transaction(HISTORY_STORE,"readwrite");tx.objectStore(HISTORY_STORE).put(snap);tx.oncomplete=()=>resolve(snap);tx.onerror=()=>reject(tx.error)});
+}
+async function deleteHistoryRecord(id){
+ let db=await openJunkaiDB();return await new Promise((resolve,reject)=>{let tx=db.transaction(HISTORY_STORE,"readwrite");tx.objectStore(HISTORY_STORE).delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+}
+function itemComment(cat,item){
+  return (item.photos||[]).map(p=>p.comment||"").find(Boolean) || cat.comment || "";
+}
+function validateRequired(){
+ let misses=[];
+ draft.categories.forEach(cat=>{
+  if(cat.name!=="その他" && !(cat.representativePhotos||[]).length)
+   misses.push(`${cat.name}：代表写真が1枚以上必要です`);
+ });
+ draft.categories.forEach(cat=>cat.items.forEach(it=>{
+  if(it.status==="×"&&!(it.photos||[]).length)misses.push(`${cat.name} / ${it.name}：要対応写真`);
+  if((it.status==="△"||it.status==="×")&&!(it.comment||"").trim())misses.push(`${cat.name} / ${it.name}：${it.status==="×"?"要対応":"経過観察"}コメント`);
+ }));
+ return [...new Set(misses)];
+}
+function snapshotDraft(){
+ return {
+  id:"h_"+Date.now(), property:{...draft.property}, date:draft.date,
+  overall:draft.overall||"", savedAt:new Date().toISOString(),
+  categories:draft.categories.map(c=>({name:c.name,comment:c.comment||"",representativePhotos:(c.representativePhotos||[]).map(ph=>({data:ph.data||ph.src||ph,monthlyCandidate:true})),items:c.items.map(i=>({
+    name:i.name,status:i.status||"",comment:i.comment||"",photos:(i.photos||[]).map(p=>({data:p.data,comment:p.comment||"",monthlyCandidate:!!p.monthlyCandidate}))
+  }))}))
+ };
+}
+async function saveCurrentInspection(){
+ let snap=snapshotDraft();snap.date=normalizeHistoryDate(snap.date);
+ await saveHistoryRecord(snap);return snap;
+}
+async function saveInspectionDataOnly(){
+ if(!draft)return;
+ if(!(await validateAndSaveInspection()))return;
+ alert("点検データを保存しました。\n保存済み巡回履歴・月次報告書に使用できます。");
+ goHome();
+}
+async function validateAndSaveInspection(){
+ if(!requirePhotoCommentBeforeNext()) return false;
+ draft.overall=document.getElementById("overall")?.value||draft.overall||"";
+ let misses=validateRequired();
+ if(misses.length){
+   alert("△・×は項目コメントと指摘写真が必須です。\n\n不足している項目：\n"+misses.join("\n"));
+   return false;
+ }
+ saveDraft();
+ try{await saveCurrentInspection()}catch(e){alert("巡回履歴をiPhone内に保存できませんでした。空き容量をご確認ください。");return false}
+ return true;
+}
+async function validatedSharePDF(){
+ if(!requirePhotoCommentBeforeNext()) return;
+ if(!draft||!(await validateAndSaveInspection()))return;
+ await createAndSharePDF();
+}
+async function validatedPreviewPDF(){
+ if(!draft||!(await validateAndSaveInspection()))return;
+
+ // iPhone/Safariのポップアップ制限対策：
+ // タップ直後に確認画面を確保し、その後PDFを生成する。
+ let previewWin=window.open("","_blank");
+ if(!previewWin){
+   alert("PDF確認画面を開けませんでした。Safariのポップアップ設定をご確認ください。");
+   return;
+ }
+ previewWin.document.write('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>PDF作成中</title><body style="font-family:-apple-system,sans-serif;padding:30px;text-align:center"><h2>PDFを作成しています…</h2><p>この画面はそのままお待ちください。</p></body>');
+ try{
+   let blob=await createPDFBlob();
+   let url=URL.createObjectURL(blob);
+   previewWin.location.href=url;
+   setTimeout(()=>URL.revokeObjectURL(url),180000);
+ }catch(e){
+   try{previewWin.close()}catch(_){}
+   alert("PDFを作成できませんでした。");
+ }
+}
+let currentMonthlyRecords=[];
+async function showMonthly(){
+ sections("monthly"); title("月次報告書","オーナー様向け");
+ monthlyResult.innerHTML='<div class="card sub">保存済み履歴を読み込んでいます…</div>';
+ try{
+   await migrateLegacyHistories();
+   let hs=await histories();
+   let names=[...new Set(hs.map(h=>h.property?.name||"").filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ja"));
+   monthProperty.innerHTML=names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+   let latest=hs.slice().sort((a,b)=>normalizeHistoryDate(b.date).localeCompare(normalizeHistoryDate(a.date)))[0];
+   let d=new Date(), defaultMonth=latest?normalizeHistoryDate(latest.date).slice(0,7):`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+   monthValue.value=defaultMonth;
+   monthlyResult.innerHTML=names.length?"":'<div class="card">保存済みの巡回履歴はありません。</div>';
+ }catch(e){monthlyResult.innerHTML='<div class="card">保存履歴を読み込めませんでした。</div>'}
+}
+async function monthRecords(propertyName,ym){
+ let hs=await histories();
+ let key=String(propertyName||"").trim();
+ return hs.filter(h=>String(h.property?.name||"").trim()===key && normalizeHistoryDate(h.date).slice(0,7)===ym)
+          .sort((a,b)=>normalizeHistoryDate(a.date).localeCompare(normalizeHistoryDate(b.date)));
+}
+async function showSavedHistory(){
+ sections("savedHistory");title("保存済み巡回履歴","iPhone・iPad ローカル保存");
+ let ps=props();historyProperty.innerHTML='<option value="">すべての物件</option>'+ps.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+ await renderSavedHistory();
+}
+async function renderSavedHistory(){
+ let el=document.getElementById("savedHistoryList");el.innerHTML='<div class="card sub">読み込んでいます…</div>';
+ try{
+  let hs=await histories(),pid=document.getElementById("historyProperty")?.value||"";
+  if(pid)hs=hs.filter(h=>String(h.property?.id)===String(pid));
+  hs.sort((a,b)=>normalizeHistoryDate(b.date).localeCompare(normalizeHistoryDate(a.date)));
+  if(!hs.length){el.innerHTML='<div class="card">保存済みの巡回履歴はありません。</div>';return}
+  el.innerHTML=hs.map(h=>`<div class="card"><div class="property"><div><b>${escapeHtml(h.property?.name||"")}</b><small>${escapeHtml(normalizeHistoryDate(h.date))}</small></div><span class="pill">保存済み</span></div><div class="property-actions"><button class="smallbtn delete" onclick="removeSavedHistory('${h.id}')">削除</button></div></div>`).join("");
+ }catch(e){el.innerHTML='<div class="card">履歴を読み込めませんでした。</div>'}
+}
+async function removeSavedHistory(id){
+ if(!confirm("この保存済み巡回履歴を削除しますか？"))return;
+ await deleteHistoryRecord(id);await renderSavedHistory();
+}
+function escapeHtml(t){return String(t||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function summarizeMonthly(rs){
+ let issueMap=new Map(), counts={"○":0,"△":0,"×":0,"－":0};
+ rs.forEach(r=>r.categories.forEach(c=>c.items.forEach(i=>{
+   if(i.status) counts[i.status]=(counts[i.status]||0)+1;
+   if(i.status==="×"||i.status==="△"){
+     let key=c.name+" / "+i.name, a=issueMap.get(key)||[];
+     a.push({date:r.date,status:i.status,comment:itemComment(c,i),photos:i.photos||[]});issueMap.set(key,a)
+   }
+ })));
+ let parts=[];
+ issueMap.forEach((arr,key)=>{
+   let last=arr[arr.length-1], first=arr[0];
+   let cs=[...new Set(arr.map(a=>a.comment).filter(Boolean))];
+   let evolution=arr.length>1?`${arr.length}回の巡回で確認`:"巡回時に確認";
+   parts.push(`${key}は${evolution}${cs.length?`（${cs.join("／")}）`:""}。`);
+ });
+ return {counts,issueMap,auto:parts.join(" ") || "今月の巡回では、特段の要対応・経過観察事項はありませんでした。"};
+}
+async function buildMonthlyView(){
+ let pid=monthProperty.value,ym=monthValue.value;
+ monthlyResult.innerHTML='<div class="card sub">巡回履歴を集約しています…</div>';
+ let rs=await monthRecords(pid,ym); currentMonthlyRecords=rs;
+ if(!rs.length){monthlyResult.innerHTML='<div class="card">この月の保存済み巡回記録はありません。</div>';return}
+ let p={...(rs[0]?.property||{})}, sm=summarizeMonthly(rs);
+ let issueHtml="";
+ sm.issueMap.forEach((arr,key)=>{
+   let last=arr[arr.length-1], id="own_"+Math.random().toString(36).slice(2);
+   issueHtml+=`<div class="month-card"><h3>${escapeHtml(key)}</h3>
+    <span class="badge">${arr.length}回確認</span><span class="badge">最新 ${escapeHtml(last.status)}</span>
+    <p>${arr.map(a=>`${escapeHtml(a.date)} ${escapeHtml(a.status)} ${escapeHtml(a.comment||"")}`).join("<br>")}</p>
+    <label>オーナー様向け個別コメント</label><textarea class="owner-text ownerIssue" data-key="${escapeHtml(key)}" placeholder="巡回コメントとは別に、オーナー様へ伝える内容を入力できます。"></textarea></div>`;
+ });
+ monthlyResult.innerHTML=`<div class="card"><h2>${escapeHtml(p?.name||"")}　${escapeHtml(ym)} 月次管理報告</h2>
+   <p><b>巡回回数：</b>${rs.length}回　<span class="badge">○ ${sm.counts["○"]}</span><span class="badge">△ ${sm.counts["△"]}</span><span class="badge">× ${sm.counts["×"]}</span><span class="badge">－ ${sm.counts["－"]}</span></p>
+   <p><b>巡回日：</b>${rs.map(r=>r.date).join("、")}</p>
+   <label>月間まとめコメント（自動下書き・編集可）</label>
+   <textarea id="monthlySummary" class="owner-text">${escapeHtml(sm.auto)}</textarea>
+   <label>オーナー様向け月次個別コメント</label>
+   <textarea id="monthlyOwnerComment" class="owner-text" placeholder="今月全体について、オーナー様へ個別に伝える内容を入力"></textarea>
+ </div>${issueHtml}
+ <button class="primary" onclick="generateMonthlyPDF()">オーナー向け月次報告書PDFを作成</button>`;
+ window._monthly={p,ym,rs,sm};
+}
+async function generateMonthlyPDF(){
+ let m=window._monthly;
+ if(!m){alert("先に「巡回履歴を集約」を押してください。");return}
+ let btn=event?.currentTarget;
+ if(btn){btn.disabled=true;btn.textContent="月次PDFを作成中…"}
+ try{
+   let canvases=await buildMonthlyCanvases(m);
+   // 通常の巡回報告書と同じPDF生成エンジンを使用
+   let blob=makeImagePDF(canvases);
+   let safe=(m.p?.name||"物件").replace(/[\\/:*?"<>|]/g,"_"), name=`${m.ym}_${safe}_月次管理報告書.pdf`;
+   let file=new File([blob],name,{type:"application/pdf"});
+   if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
+     try{await navigator.share({title:name,files:[file]});return}catch(e){if(e.name==="AbortError")return}
+   }
+   let url=URL.createObjectURL(blob),a=document.createElement("a");
+   a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+   setTimeout(()=>URL.revokeObjectURL(url),30000);
+ }catch(e){
+   console.error("monthly pdf error",e);
+   alert("オーナー向け月次PDFを作成できませんでした。\n"+(e?.message||String(e)));
+ }finally{
+   if(btn){btn.disabled=false;btn.textContent="オーナー向け月次報告書PDFを作成"}
+ }
+}
+async function buildMonthlyCanvases(m){
+ const W=1240,H=1754,pages=[];
+ const make=()=>{let c=document.createElement("canvas");c.width=W;c.height=H;let x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);return [c,x]};
+ const header=(x,title,sub,page,total)=>{x.fillStyle="#18365b";x.fillRect(0,0,W,115);x.fillStyle="#fff";x.font="800 34px sans-serif";x.fillText(title,70,62);x.font="500 19px sans-serif";x.fillText(sub,70,94);x.textAlign="right";x.fillText(`${page} / ${total}`,1170,94);x.textAlign="left"};
+ const cats=["建物外周","エントランス","共用廊下・階段","ゴミ置場","駐輪場","植栽・外構","その他"],all=[],repAll=[];
+ m.rs.forEach(r=>r.categories.forEach(cat=>{(cat.representativePhotos||[]).forEach(ph=>repAll.push({date:normalizeHistoryDate(r.date),cat:cat.name,status:"○",src:ph.data||ph.src||ph.url||ph}));cat.items.forEach(it=>(it.photos||[]).forEach(ph=>all.push({date:normalizeHistoryDate(r.date),cat:cat.name,item:it.name,status:it.status||"○",comment:it.comment||cat.comment||"",src:ph.data||ph.src||ph.url||ph,memo:ph.comment||""})))}));
+ const issues=all.filter(v=>v.status==="×"||v.status==="△"),reps=[];
+ cats.forEach(cat=>{let arr=repAll.filter(v=>v.cat===cat).sort((a,b)=>b.date.localeCompare(a.date));if(!arr.length)return;let v={...arr[0],item:"代表写真",comment:""};let ci=issues.filter(q=>q.cat===cat).sort((a,b)=>(a.status==="×"?0:1)-(b.status==="×"?0:1)||b.date.localeCompare(a.date));if(ci.length){v.status=ci[0].status;v.item=ci[0].item;v.comment=ci[0].comment}reps.push(v)});
+ const mainPages=Math.max(1,Math.ceil(reps.length/4)),issuePages=issues.length?Math.ceil(issues.length/4):0,total=mainPages+issuePages;
+ const drawPhoto=async(x,v,bx,by,bw,bh)=>{try{let img=await loadImage(v.src),sc=Math.min(bw/img.width,bh/img.height),dw=img.width*sc,dh=img.height*sc;x.fillStyle="#f2f4f7";x.fillRect(bx,by,bw,bh);x.drawImage(img,bx+(bw-dw)/2,by+(bh-dh)/2,dw,dh)}catch(e){x.fillStyle="#f2f4f7";x.fillRect(bx,by,bw,bh)}};
+ for(let pg=0;pg<mainPages;pg++){
+  let [c,x]=make(),chunk=reps.slice(pg*4,pg*4+4);header(x,"月次管理報告書",`${m.p?.name||""}　${m.ym.replace("-","年")}月`,pg+1,total);
+  if(pg===0){x.fillStyle="#1d2939";x.font="800 30px sans-serif";x.fillText("今月の巡回・管理状況",70,160);x.fillStyle="#475467";x.font="500 20px sans-serif";x.fillText(`巡回実施日：${m.rs.map(r=>normalizeHistoryDate(r.date).slice(5).replace("-","/")).join("・")}`,70,196)}
+  let top=pg===0?235:155;
+  for(let i=0;i<chunk.length;i++){let v=chunk[i],col=i%2,row=Math.floor(i/2),bx=70+col*565,by=top+row*700;x.fillStyle="#eaf1f8";x.fillRect(bx,by,535,42);x.fillStyle="#18365b";x.font="800 24px sans-serif";x.fillText(v.cat,bx+14,by+29);await drawPhoto(x,v,bx,by+54,535,370);let sy=by+458,color=v.status==="×"?"#a23b3b":v.status==="△"?"#a06a12":"#26734d";x.fillStyle=color;x.font="800 25px sans-serif";x.fillText(`${v.status} ${v.status==="×"?"要対応":v.status==="△"?"経過観察":"良好"}`,bx,sy);x.fillStyle="#1d2939";x.font="700 22px sans-serif";x.fillText(v.item,bx+145,sy);x.fillStyle="#475467";x.font="500 20px sans-serif";let desc=v.status==="○"?"点検の結果、特に問題は確認されませんでした。":(v.comment||v.memo||"巡回時に指摘事項を確認しました。"),yy=sy+36;wrapCanvasText(x,desc,520).slice(0,4).forEach(line=>{x.fillText(line,bx,yy);yy+=27})}
+  pages.push(c);
+ }
+ for(let pg=0;pg<issuePages;pg++){
+  let [c,x]=make(),chunk=issues.slice(pg*4,pg*4+4);header(x,"指摘・経過観察事項",`${m.p?.name||""}　${m.ym.replace("-","年")}月`,mainPages+pg+1,total);
+  for(let i=0;i<chunk.length;i++){let v=chunk[i],col=i%2,row=Math.floor(i/2),bx=70+col*565,by=155+row*760,bad=v.status==="×";x.fillStyle=bad?"#fff1f1":"#fff8e8";x.fillRect(bx,by,535,52);x.fillStyle=bad?"#a23b3b":"#a06a12";x.font="800 23px sans-serif";x.fillText(`${v.status} ${bad?"要対応":"経過観察"}　${v.date.slice(5).replace("-","/")}`,bx+14,by+34);await drawPhoto(x,v,bx,by+65,535,385);x.fillStyle="#1d2939";x.font="800 22px sans-serif";x.fillText(`${v.cat} ｜ ${v.item}`,bx,by+486);x.fillStyle="#475467";x.font="500 20px sans-serif";let yy=by+522;wrapCanvasText(x,v.comment||v.memo||"巡回時に指摘事項を確認しました。",520).slice(0,5).forEach(line=>{x.fillText(line,bx,yy);yy+=27})}
+  pages.push(c);
+ }
+ return pages;
+}
+async function generateMonthlyPDF(){
+ let m=window._monthly;
+ if(!m){alert("先に「巡回履歴を集約」を押してください。");return}
+ let btn=event?.currentTarget;
+ if(btn){btn.disabled=true;btn.textContent="月次PDFを作成中…"}
+ try{
+   let canvases=await buildMonthlyCanvases(m);
+   // 通常の巡回報告書と同じPDF生成エンジンを使用
+   let blob=makeImagePDF(canvases);
+   let safe=(m.p?.name||"物件").replace(/[\\/:*?"<>|]/g,"_"), name=`${m.ym}_${safe}_月次管理報告書.pdf`;
+   let file=new File([blob],name,{type:"application/pdf"});
+   if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
+     try{await navigator.share({title:name,files:[file]});return}catch(e){if(e.name==="AbortError")return}
+   }
+   let url=URL.createObjectURL(blob),a=document.createElement("a");
+   a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+   setTimeout(()=>URL.revokeObjectURL(url),30000);
+ }catch(e){
+   console.error("monthly pdf error",e);
+   alert("オーナー向け月次PDFを作成できませんでした。\n"+(e?.message||String(e)));
+ }finally{
+   if(btn){btn.disabled=false;btn.textContent="オーナー向け月次報告書PDFを作成"}
+ }
+}
+async function buildMonthlyCanvases(m){
+ let pages=[], allIssues=[];
+ m.sm.issueMap.forEach((arr,key)=>{let last=arr[arr.length-1];allIssues.push({key,arr,last})});
+ allIssues.sort((a,b)=>(a.last.status==="×"?0:1)-(b.last.status==="×"?0:1));
+ let ownerMap={};document.querySelectorAll(".ownerIssue").forEach(t=>ownerMap[t.dataset.key]=t.value.trim());
+ let summary=document.getElementById("monthlySummary")?.value||m.sm.auto;
+ let owner=document.getElementById("monthlyOwnerComment")?.value||"";
+ const make=()=>{let c=document.createElement("canvas");c.width=1240;c.height=1754;let x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,1240,1754);return [c,x]};
+ let [c,x]=make();x.fillStyle="#18365b";x.fillRect(0,0,1240,120);x.fillStyle="#fff";x.font="700 34px -apple-system, sans-serif";x.fillText("月次管理報告書",70,75);
+ x.fillStyle="#1d2939";x.font="700 38px -apple-system, sans-serif";x.fillText(m.p.name,70,185);
+ x.fillStyle="#667085";x.font="500 21px -apple-system, sans-serif";x.fillText(`${m.ym.replace("-","年")}月　巡回 ${m.rs.length}回`,70,225);
+ let y=285;x.fillStyle="#18365b";x.font="700 27px -apple-system, sans-serif";x.fillText("今月の巡回概要",70,y);y+=40;
+ x.fillStyle="#f3f6f9";x.fillRect(70,y-25,1100,70);x.font="700 25px -apple-system, sans-serif";
+ x.fillStyle="#26734d";x.fillText(`○ ${m.sm.counts["○"]}`,105,y+18);x.fillStyle="#a06a12";x.fillText(`△ ${m.sm.counts["△"]}`,330,y+18);x.fillStyle="#a23b3b";x.fillText(`× ${m.sm.counts["×"]}`,555,y+18);x.fillStyle="#667085";x.fillText(`－ ${m.sm.counts["－"]}`,780,y+18);
+ y+=90;x.fillStyle="#18365b";x.font="700 24px -apple-system, sans-serif";x.fillText("月間まとめ",70,y);y+=38;
+ x.fillStyle="#344054";x.font="500 18px -apple-system, sans-serif";for(const ln of wrapCanvasText(x,summary,1060)){x.fillText(ln,80,y);y+=27;if(y>700)break}
+ if(owner){y+=25;x.fillStyle="#18365b";x.font="700 24px -apple-system, sans-serif";x.fillText("管理会社コメント",70,y);y+=38;x.fillStyle="#344054";x.font="500 18px -apple-system, sans-serif";for(const ln of wrapCanvasText(x,owner,1060)){x.fillText(ln,80,y);y+=27}}
+ y+=35;x.fillStyle="#18365b";x.font="700 24px -apple-system, sans-serif";x.fillText("ご報告事項",70,y);y+=35;
+ for(const it of allIssues.slice(0,8)){
+   x.fillStyle=it.last.status==="×"?"#a23b3b":"#a06a12";x.font="700 24px -apple-system, sans-serif";x.fillText(`${it.last.status} ${it.key}`,85,y);y+=26;
+   let tx=ownerMap[it.key]||it.last.comment||"";
+   x.fillStyle="#475467";x.font="500 18px -apple-system, sans-serif";for(const ln of wrapCanvasText(x,tx,1020).slice(0,2)){x.fillText(ln,105,y);y+=22}y+=15;if(y>1580)break
+ }
+ pages.push(c);
+ // Photo pages: latest issue photos, x then triangle, up to 4/page for owner readability
+ let pics=[];allIssues.forEach(it=>{let chosen=[...it.arr].reverse().find(a=>(a.photos||[]).length);if(chosen)chosen.photos.slice(0,2).forEach(ph=>pics.push({key:it.key,status:chosen.status,date:chosen.date,ph,owner:ownerMap[it.key]||chosen.comment||""}))});
+ for(let n=0;n<pics.length;n+=4){
+   let [pc,ctx]=make();ctx.fillStyle="#18365b";ctx.fillRect(0,0,1240,120);ctx.fillStyle="#fff";ctx.font="700 38px -apple-system, sans-serif";ctx.fillText("月次管理報告書　点検写真",70,75);
+   let batch=pics.slice(n,n+4);
+   for(let k=0;k<batch.length;k++){
+     let col=k%2,row=Math.floor(k/2),bx=70+col*550,by=170+row*760,bw=510,bh=560;
+     ctx.fillStyle="#f3f6f9";ctx.fillRect(bx,by,bw,bh);
+     try{let img=await loadImg(batch[k].ph.data),sc=Math.min(bw/img.width,bh/img.height),dw=img.width*sc,dh=img.height*sc;ctx.drawImage(img,bx+(bw-dw)/2,by+(bh-dh)/2,dw,dh)}catch(e){}
+     ctx.fillStyle=batch[k].status==="×"?"#a23b3b":"#a06a12";ctx.font="700 18px -apple-system, sans-serif";ctx.fillText(`${batch[k].status} ${batch[k].key}`,bx,by+590);
+     ctx.fillStyle="#667085";ctx.font="500 22px -apple-system, sans-serif";ctx.fillText(batch[k].date,bx,by+615);
+     ctx.fillStyle="#344054";for(const ln of wrapCanvasText(ctx,batch[k].owner,bw).slice(0,3)){ctx.fillText(ln,bx,by+645);by+=20}
+   }pages.push(pc)
+ }
+ return pages;
+}
+async function buildReportCanvases(){
+ draft.overall=document.getElementById("overall")?.value||draft.overall||"";saveDraft();
+ const photos=collectReportPhotos(),photoPages=Math.ceil(photos.length/6),total=1+photoPages,pages=[];
+
+ let c=document.createElement("canvas");c.width=1240;c.height=1754;let x=c.getContext("2d");
+ x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);drawCoverHeader(x,1,total);
+
+ // 物件名
+ x.fillStyle="#1d2939";x.font="800 38px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+ x.fillText(draft.property.name,70,170);
+
+ // 点検日を最も大きく
+ x.fillStyle="#eef4fa";x.fillRect(70,195,500,80);
+ x.fillStyle="#18365b";x.font="700 21px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+ x.fillText("点検日",92,228);
+ x.font="800 31px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+ x.fillText(draft.date,190,245);
+ x.fillStyle="#667085";x.font="500 19px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+ x.fillText(`住所：${draft.property.address||"未登録"}`,610,240);
+
+ let sc=statusCounts();
+ x.fillStyle="#f5f7fa";x.fillRect(70,300,1100,70);
+ const sums=[["○","良好",sc["○"]||0,"#26734d",100],["△","経過観察",sc["△"]||0,"#a06a12",355],["×","要対応",sc["×"]||0,"#a23b3b",690],["－","対象外",sc["－"]||0,"#667085",965]];
+ x.font="800 23px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+ sums.forEach(v=>{x.fillStyle=v[3];x.fillText(`${v[0]} ${v[1]} ${v[2]}件`,v[4],344)});
+
+ // 点検結果一覧
+ x.fillStyle="#18365b";x.font="800 28px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+ x.fillText("点検結果一覧",70,420);
+ const colX=[70,635],colW=535,topY=452;
+ const groups=[[draft.categories[0],draft.categories[1],draft.categories[2]],[draft.categories[3],draft.categories[4],draft.categories[5],draft.categories[6]]];
+ let maxY=topY;
+ for(let col=0;col<2;col++){
+  let y=topY,bx=colX[col];
+  for(const cat of groups[col]){
+   x.fillStyle="#eaf1f8";x.fillRect(bx,y,colW,38);
+   x.fillStyle="#18365b";x.font="800 23px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+   x.fillText(cat.name,bx+12,y+27);y+=44;
+   for(const it of cat.items){
+    let st=it.status||"未",color=st==="○"?"#26734d":st==="△"?"#a06a12":st==="×"?"#a23b3b":"#667085";
+    x.fillStyle="#344054";x.font="600 24px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+    let nm=it.name.length>17?it.name.slice(0,16)+"…":it.name;
+    x.fillText(nm,bx+12,y+27);
+    x.fillStyle=color;x.font="800 26px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+    x.fillText(st,bx+colW-48,y+27);
+    x.strokeStyle="#e6eaf0";x.beginPath();x.moveTo(bx,y+36);x.lineTo(bx+colW,y+36);x.stroke();
+    y+=39;
+   }
+   y+=8;
+  }
+  maxY=Math.max(maxY,y);
+ }
+
+ // 指摘・経過観察
+ let issues=[];
+ draft.categories.forEach(cat=>cat.items.forEach(it=>{if(it.status==="×"||it.status==="△")issues.push({category:cat.name,item:it.name,status:it.status,comment:it.comment||cat.comment||""})}));
+ let y=Math.max(maxY+18,1030);
+ x.fillStyle="#18365b";x.font="800 28px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+ x.fillText("指摘・経過観察事項",70,y);y+=18;
+
+ if(!issues.length){
+  x.fillStyle="#eef8f2";x.fillRect(70,y+10,1100,65);
+  x.fillStyle="#26734d";x.font="700 23px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+  x.fillText("○ 指摘事項なし",95,y+51);y+=90;
+ }else{
+  y+=12;
+  for(const it of issues.slice(0,4)){
+   const bad=it.status==="×",lines=wrapCanvasText(x,it.comment||"",830).slice(0,2),h=72+(lines.length>1?25:0);
+   x.fillStyle=bad?"#fff1f1":"#fff8e8";x.fillRect(70,y,1100,h);
+   x.fillStyle=bad?"#a23b3b":"#a06a12";x.fillRect(70,y,11,h);
+   x.font="800 24px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+   x.fillText(bad?"× 要対応":"△ 経過観察",95,y+31);
+   x.fillStyle="#1d2939";x.font="700 23px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+   x.fillText(`${it.category} ｜ ${it.item}`,290,y+31);
+   x.fillStyle="#475467";x.font="500 21px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+   let cy=y+59;lines.forEach(ln=>{x.fillText(ln,95,cy);cy+=25});
+   y+=h+10;
+   if(y>1460)break;
+  }
+ }
+
+ // 総合コメント
+ let boxY=Math.max(y+15,1470); if(boxY>1510)boxY=1510;
+ x.fillStyle="#18365b";x.font="800 27px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+ x.fillText("総合コメント",70,boxY);
+ x.fillStyle="#f7f9fb";x.fillRect(70,boxY+20,1100,145);
+ x.fillStyle="#344054";x.font="500 21px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+ let oy=boxY+55;for(const ln of wrapCanvasText(x,draft.overall||"特記事項なし",1040).slice(0,4)){x.fillText(ln,95,oy);oy+=28}
+ pages.push(c);
+ for(let pg=0;pg<photoPages;pg++){
+   let pc=document.createElement("canvas");pc.width=1240;pc.height=1754;let ctx=pc.getContext("2d");
+   ctx.fillStyle="#fff";ctx.fillRect(0,0,pc.width,pc.height);drawCoverHeader(ctx,pg+2,total);
+   ctx.fillStyle="#1d2939";ctx.font="700 28px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";ctx.fillText("点検写真",70,175);
+   let batch=photos.slice(pg*6,pg*6+6), count=batch.length;
+   let cols=count<=2?1:2, rows=Math.ceil(count/cols);
+   let areaTop=215, areaBottom=1660, gapX=40, gapY=30;
+   let bw=cols===1?1050:515, cellH=(areaBottom-areaTop-gapY*(rows-1))/rows;
+   let imageH=Math.min(count<=2?520:315,cellH-95);
+   for(let k=0;k<count;k++){
+     let col=k%cols,row=Math.floor(k/cols),bx=70+col*(bw+gapX),by=areaTop+row*(cellH+gapY);
+     ctx.fillStyle="#f3f6f9";ctx.fillRect(bx,by,bw,imageH);
+     try{
+       let img=await loadImg(batch[k].data),scale=Math.min(bw/img.width,imageH/img.height),dw=img.width*scale,dh=img.height*scale;
+       ctx.drawImage(img,bx+(bw-dw)/2,by+(imageH-dh)/2,dw,dh);
+     }catch(e){}
+     ctx.fillStyle=batch[k].status==="×"?"#a23b3b":batch[k].status==="△"?"#a06a12":"#18365b";
+     ctx.font="700 18px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+     ctx.fillText(`${batch[k].status}  ${batch[k].category} / ${batch[k].item}`,bx,by+imageH+28);
+     ctx.fillStyle="#475467";ctx.font="500 18px -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif";
+     let lines=wrapCanvasText(ctx,batch[k].comment||"コメントなし",bw);
+     lines.slice(0,2).forEach((ln,z)=>ctx.fillText(ln,bx,by+imageH+54+z*21));
+   }
+   pages.push(pc);
+ }
+ return pages;
+}
+function dataUrlBytes(url){
+ let b=atob(url.split(",")[1]),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;
+}
+function makeImagePDF(canvases){
+ let imgs=canvases.map(c=>dataUrlBytes(c.toDataURL("image/jpeg",0.84)));
+ let parts=[],offsets=[0],len=0; const enc=new TextEncoder();
+ function add(v){let u=typeof v==="string"?enc.encode(v):v;parts.push(u);len+=u.length}
+ function obj(n,body){offsets[n]=len;add(`${n} 0 obj\n${body}\nendobj\n`)}
+ add("%PDF-1.4\n");
+ let n=canvases.length, catalog=1,pagesObj=2,next=3,pageNums=[],imgNums=[],contentNums=[];
+ for(let i=0;i<n;i++){pageNums.push(next++);imgNums.push(next++);contentNums.push(next++)}
+ obj(catalog,`<< /Type /Catalog /Pages ${pagesObj} 0 R >>`);
+ obj(pagesObj,`<< /Type /Pages /Kids [${pageNums.map(x=>x+" 0 R").join(" ")}] /Count ${n} >>`);
+ for(let i=0;i<n;i++){
+   obj(pageNums[i],`<< /Type /Page /Parent ${pagesObj} 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im${i} ${imgNums[i]} 0 R >> >> /Contents ${contentNums[i]} 0 R >>`);
+   offsets[imgNums[i]]=len;add(`${imgNums[i]} 0 obj\n<< /Type /XObject /Subtype /Image /Width 1240 /Height 1754 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgs[i].length} >>\nstream\n`);add(imgs[i]);add("\nendstream\nendobj\n");
+   let stream=`q\n595.28 0 0 841.89 0 0 cm\n/Im${i} Do\nQ\n`;
+   obj(contentNums[i],`<< /Length ${enc.encode(stream).length} >>\nstream\n${stream}endstream`);
+ }
+ let xref=len;add(`xref\n0 ${next}\n0000000000 65535 f \n`);
+ for(let i=1;i<next;i++)add(String(offsets[i]).padStart(10,"0")+" 00000 n \n");
+ add(`trailer\n<< /Size ${next} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+ return new Blob(parts,{type:"application/pdf"});
+}
+function safeFileName(s){return String(s||"巡回点検").replace(/[\\/:*?"<>|]/g,"_")}
+async function createPDFBlob(){
+ let btn=document.getElementById("pdfShareBtn");if(btn){btn.disabled=true;btn.textContent="PDFを作成中…"}
+ try{return makeImagePDF(await buildReportCanvases())}
+ finally{if(btn){btn.disabled=false;btn.textContent="PDFを作成して会社へ送る"}}
+}
+async function createAndSharePDF(){
+ if(!draft)return;
+ try{
+   let blob=await createPDFBlob(),name=`${draft.date.replace(/\//g,"-")}_${safeFileName(draft.property.name)}_巡回点検報告書.pdf`;
+   let file=new File([blob],name,{type:"application/pdf"});
+   if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
+     await navigator.share({title:"巡回点検報告書",text:`${draft.property.name} ${draft.date} 巡回点検報告書`,files:[file]});
+   }else{
+     let a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),30000);
+     alert("PDFを保存しました。iPhoneの共有メニューからメール送信してください。");
+   }
+ }catch(e){if(e&&e.name!=="AbortError")alert("PDFの作成または共有に失敗しました。写真枚数を減らして再度お試しください。")}
+}
+async function previewPDF(){
+ let w=window.open("","_blank");
+ if(!w){alert("PDF確認画面を開けませんでした。");return;}
+ try{
+   let blob=await createPDFBlob(),url=URL.createObjectURL(blob);
+   w.location.href=url;
+   setTimeout(()=>URL.revokeObjectURL(url),180000);
+ }catch(e){
+   try{w.close()}catch(_){}
+   alert("PDFを作成できませんでした。");
+ }
+}
+
+function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;localStorage.removeItem("inspection_draft");draft=null;sections("home");title("巡回点検","iPhone 現場点検 V1.8.6");updateDraftInfo();}
+function resumeDraft(){let d=JSON.parse(localStorage.getItem("inspection_draft")||"null");if(!d)return;draft=d;current=0;sections("inspection");renderCategory();}
+function saveDraft(){try{localStorage.setItem("inspection_draft",JSON.stringify(draft));updateDraftInfo()}catch(e){alert("iPhone内の保存容量が不足しました。不要な写真を削除してください。")}}
+function updateDraftInfo(){let d=JSON.parse(localStorage.getItem("inspection_draft")||"null");draftInfo.textContent=d?`${d.property.name} / ${d.date} の巡回データがあります`:"現在、作業中の巡回はありません";let b=document.getElementById("resumeBtn");if(b)b.style.display=d?"block":"none"}
+function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+updateDraftInfo();
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=190",{updateViaCache:"none"}).catch(()=>{}));}
+</script>
+
+<script>
+/* V1.8.6: ×を選んだ時点で、その項目の既存カメラ入力を自動起動する */
+document.addEventListener("click", function(ev){
+  const btn = ev.target.closest("button");
+  if(!btn || btn.textContent.trim() !== "×") return;
+
+  const item = btn.closest(".item");
+  if(!item) return;
+
+  setTimeout(function(){
+    /* 既存の写真追加 input を優先。iPhone/iPadでは capture=environment でカメラを起動 */
+    let input = item.querySelector('input[type="file"][accept*="image"]');
+    if(!input) return;
+    input.setAttribute("accept","image/*");
+    input.setAttribute("capture","environment");
+
+    const hasPhoto = item.querySelector("img");
+    if(!hasPhoto){
+      input.click();
+    }
+
+    /* コメント欄も要対応であることを分かりやすくする */
+    const ta = item.querySelector("textarea");
+    if(ta){
+      ta.required = true;
+      ta.placeholder = "要対応の状況を入力してください（必須）";
+      let note=item.querySelector(".required-note.v163");
+      if(!note){
+        note=document.createElement("div");
+        note.className="required-note v163";
+        note.textContent="× 要対応：写真＋コメント必須";
+        ta.insertAdjacentElement("afterend",note);
+      }
+    }
+  }, 80);
+}, true);
+</script>
+
+</body></html>
