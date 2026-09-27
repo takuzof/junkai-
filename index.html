@@ -63,7 +63,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="brand">PROPERTY INSPECTION · V1.9.1</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.9.1</div></header>
+<header class="top"><div class="brand">PROPERTY INSPECTION · V1.9.2</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.9.2</div></header>
 <main>
 <section id="home">
  <div class="card"><h2 style="margin-top:0">定期巡回を開始</h2><p class="sub">登録済みの物件を選択して、現場で点検結果を記録します。</p><button class="primary" onclick="showProperties()">巡回点検を開始</button></div>
@@ -168,7 +168,7 @@ async function exportInspectionBackup(){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.9.1");
+ title("巡回点検","iPhone・iPad 現場点検 V1.9.2");
  updateHome();
  scrollTo(0,0);
 }
@@ -714,40 +714,46 @@ async function generateMonthlyPDF(){
 async function buildMonthlyCanvases(m){
  const W=1240,H=1754,pages=[];
  const make=()=>{let c=document.createElement("canvas");c.width=W;c.height=H;let x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);return [c,x]};
- const header=(x,title,sub)=>{x.fillStyle="#18365b";x.fillRect(0,0,W,112);x.fillStyle="#fff";x.font="800 35px -apple-system,sans-serif";x.fillText(title,65,68);x.font="500 18px -apple-system,sans-serif";x.fillText(sub,65,96)};
- const statusColor=s=>s==="×"?"#a23b3b":s==="△"?"#a06a12":s==="○"?"#26734d":"#667085";
+ const header=(x,title,sub)=>{x.fillStyle="#173a63";x.fillRect(0,0,W,118);x.fillStyle="#fff";x.font="800 36px -apple-system,sans-serif";x.fillText(title,65,66);x.font="500 18px -apple-system,sans-serif";x.fillText(sub,65,97)};
+ const statusColor=s=>s==="×"?"#b42318":s==="△"?"#b26a00":s==="○"?"#18835a":"#667085";
+ const statusBg=s=>s==="×"?"#fff1f0":s==="△"?"#fff8e8":s==="○"?"#edf9f3":"#f2f4f7";
  const rank={"－":0,"○":1,"△":2,"×":3};
  const ownerMap={};document.querySelectorAll(".ownerIssue").forEach(t=>ownerMap[t.dataset.key]=t.value.trim());
  const summary=document.getElementById("monthlySummary")?.value||m.sm.auto||"";
  const owner=document.getElementById("monthlyOwnerComment")?.value||"";
- const latest=[...m.rs].sort((a,b)=>normalizeHistoryDate(a.date).localeCompare(normalizeHistoryDate(b.date))).at(-1);
  const itemRows=[];
  CATEGORIES.forEach((def,ci)=>def.items.forEach((itemName,ii)=>{
    let seen=[];m.rs.forEach(r=>{let cat=r.categories?.find(c=>c.name===def.name)||r.categories?.[ci];let it=cat?.items?.find(i=>i.name===itemName)||cat?.items?.[ii];if(it?.status)seen.push({status:it.status,date:normalizeHistoryDate(r.date),comment:it.comment||cat?.comment||"",photos:it.photos||[]})});
    let worst=seen.reduce((a,b)=>(rank[b.status]||0)>(rank[a?.status]||0)?b:a,null);itemRows.push({cat:def.name,item:itemName,status:worst?.status||"－",seen,worst});
  }));
  const monthlyCounts={"○":0,"△":0,"×":0,"－":0};itemRows.forEach(r=>monthlyCounts[r.status]++);
- // PAGE 1: formal monthly checklist
+ const categoryRows=CATEGORIES.map(def=>{let rows=itemRows.filter(r=>r.cat===def.name),worst=rows.reduce((a,b)=>(rank[b.status]||0)>(rank[a]||0)?b.status:a,"－");return {name:def.name,status:worst}});
+ const loadPhoto=src=>new Promise((resolve,reject)=>{if(!src)return reject(new Error("no image"));let img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=src});
+ const drawPhoto=async(ctx,src,bx,by,bw,bh)=>{ctx.fillStyle="#eef2f6";ctx.fillRect(bx,by,bw,bh);try{let img=await loadPhoto(src);let sc=Math.max(bw/img.width,bh/img.height),dw=img.width*sc,dh=img.height*sc;ctx.save();ctx.beginPath();ctx.rect(bx,by,bw,bh);ctx.clip();ctx.drawImage(img,bx+(bw-dw)/2,by+(bh-dh)/2,dw,dh);ctx.restore();return true}catch(e){ctx.fillStyle="#98a2b3";ctx.font="600 16px -apple-system,sans-serif";ctx.textAlign="center";ctx.fillText("写真を表示できません",bx+bw/2,by+bh/2);ctx.textAlign="left";return false}};
+ // latest representative photo for each normal category
+ let reps=[];CATEGORIES.filter(d=>d.name!=="その他").forEach(def=>{let cand=[];m.rs.forEach(r=>{let cat=r.categories?.find(c=>c.name===def.name);(cat?.representativePhotos||[]).forEach(ph=>cand.push({cat:def.name,date:normalizeHistoryDate(r.date),src:ph.data||ph.src||ph.url||ph}))});cand.sort((a,b)=>b.date.localeCompare(a.date));if(cand[0])reps.push(cand[0])});
+ // PAGE 1: owner-facing dashboard + representative photos
  let [c,x]=make();header(x,"月次管理報告書",`${m.p?.name||""}　${m.ym.replace("-","年")}月`);
- x.fillStyle="#1d2939";x.font="800 30px -apple-system,sans-serif";x.fillText("月次巡回点検表",65,158);
- x.fillStyle="#667085";x.font="500 17px -apple-system,sans-serif";x.fillText(`巡回回数：${m.rs.length}回　巡回日：${m.rs.map(r=>normalizeHistoryDate(r.date).slice(5).replace("-","/")).join("・")}`,65,188);
- x.fillStyle="#f3f6f9";x.fillRect(65,210,1110,62);x.font="800 23px -apple-system,sans-serif";
- [["○",monthlyCounts["○"],120],["△",monthlyCounts["△"],375],["×",monthlyCounts["×"],630],["－",monthlyCounts["－"],885]].forEach(([st,n,xx])=>{x.fillStyle=statusColor(st);x.fillText(`${st} ${n}`,xx,250)});
- x.fillStyle="#667085";x.font="500 14px -apple-system,sans-serif";x.fillText("月次判定：当月の巡回で確認した最も注意度の高い判定を表示（× ＞ △ ＞ ○ ＞ －）",65,296);
- let y=325,rowH=48;const col1=65,col2=300,col3=1010;
- x.fillStyle="#18365b";x.fillRect(65,y,1110,44);x.fillStyle="#fff";x.font="800 18px -apple-system,sans-serif";x.fillText("点検箇所",82,y+29);x.fillText("点検項目",315,y+29);x.textAlign="center";x.fillText("判定",1090,y+29);x.textAlign="left";y+=44;
- let lastCat="";
- itemRows.forEach((r,idx)=>{if(idx%2===0){x.fillStyle="#f8fafc";x.fillRect(65,y,1110,rowH)}x.strokeStyle="#d9e1ea";x.strokeRect(65,y,1110,rowH);x.beginPath();x.moveTo(col2,y);x.lineTo(col2,y+rowH);x.moveTo(col3,y);x.lineTo(col3,y+rowH);x.stroke();x.fillStyle="#344054";x.font="700 16px -apple-system,sans-serif";if(r.cat!==lastCat){x.fillText(r.cat,82,y+30);lastCat=r.cat}x.font="500 16px -apple-system,sans-serif";x.fillText(r.item,315,y+30);x.fillStyle=statusColor(r.status);x.font="900 24px -apple-system,sans-serif";x.textAlign="center";x.fillText(r.status,1090,y+31);x.textAlign="left";y+=rowH});
- y+=28;x.fillStyle="#18365b";x.font="800 21px -apple-system,sans-serif";x.fillText("月間まとめ",65,y);y+=30;x.fillStyle="#475467";x.font="500 16px -apple-system,sans-serif";for(const ln of wrapCanvasText(x,summary,1090).slice(0,3)){x.fillText(ln,75,y);y+=23}
- if(owner){y+=10;x.fillStyle="#18365b";x.font="800 21px -apple-system,sans-serif";x.fillText("管理会社コメント",65,y);y+=30;x.fillStyle="#475467";x.font="500 16px -apple-system,sans-serif";for(const ln of wrapCanvasText(x,owner,1090).slice(0,3)){x.fillText(ln,75,y);y+=23}}
+ x.fillStyle="#1d2939";x.font="800 29px -apple-system,sans-serif";x.fillText("MONTHLY PROPERTY REPORT",65,166);
+ x.fillStyle="#667085";x.font="500 17px -apple-system,sans-serif";x.fillText(`巡回回数 ${m.rs.length}回　｜　巡回日 ${m.rs.map(r=>normalizeHistoryDate(r.date).slice(5).replace("-","/")).join("・")}`,65,197);
+ // count cards
+ const cards=[["○","良好",monthlyCounts["○"]],["△","経過観察",monthlyCounts["△"]],["×","要対応",monthlyCounts["×"]],["－","対象外",monthlyCounts["－"]]];
+ cards.forEach((v,i)=>{let bx=65+i*280;x.fillStyle=statusBg(v[0]);x.fillRect(bx,222,255,72);x.fillStyle=statusColor(v[0]);x.font="900 28px -apple-system,sans-serif";x.fillText(`${v[0]} ${v[2]}`,bx+18,263);x.font="700 14px -apple-system,sans-serif";x.fillText(v[1],bx+118,261)});
+ // category status strip
+ x.fillStyle="#173a63";x.font="800 20px -apple-system,sans-serif";x.fillText("月次点検結果",65,338);
+ categoryRows.forEach((r,i)=>{let col=i%4,row=Math.floor(i/4),bx=65+col*280,by=358+row*56;x.fillStyle="#f8fafc";x.fillRect(bx,by,255,44);x.fillStyle="#344054";x.font="700 15px -apple-system,sans-serif";x.fillText(r.name,bx+12,by+28);x.fillStyle=statusColor(r.status);x.font="900 23px -apple-system,sans-serif";x.textAlign="right";x.fillText(r.status,bx+235,by+29);x.textAlign="left"});
+ // representative photos 2 x 3
+ x.fillStyle="#173a63";x.font="800 20px -apple-system,sans-serif";x.fillText("巡回代表写真",65,486);
+ const slots=6,bw=350,bh=235,gx=28,gy=70,startX=65,startY=508;
+ for(let k=0;k<slots;k++){let col=k%3,row=Math.floor(k/3),bx=startX+col*(bw+gx),by=startY+row*(bh+gy);let v=reps[k];if(v){await drawPhoto(x,v.src,bx,by,bw,bh);x.fillStyle="#173a63";x.font="800 16px -apple-system,sans-serif";x.fillText(v.cat,bx,by+258);x.fillStyle="#667085";x.font="500 13px -apple-system,sans-serif";x.textAlign="right";x.fillText(v.date,bx+bw,by+258);x.textAlign="left"}else{x.fillStyle="#f2f4f7";x.fillRect(bx,by,bw,bh);x.fillStyle="#98a2b3";x.font="600 15px -apple-system,sans-serif";x.textAlign="center";x.fillText("代表写真なし",bx+bw/2,by+bh/2);x.textAlign="left"}}
+ // monthly summary / management comment
+ let sy=1138;x.fillStyle="#173a63";x.font="800 20px -apple-system,sans-serif";x.fillText("月間総括",65,sy);sy+=18;x.fillStyle="#f7f9fc";x.fillRect(65,sy,1110,150);x.fillStyle="#344054";x.font="500 16px -apple-system,sans-serif";let ty=sy+31;for(const ln of wrapCanvasText(x,summary||"特記事項なし",1060).slice(0,5)){x.fillText(ln,90,ty);ty+=24}
+ sy+=180;x.fillStyle="#173a63";x.font="800 20px -apple-system,sans-serif";x.fillText("管理会社コメント",65,sy);sy+=18;x.fillStyle="#f7f9fc";x.fillRect(65,sy,1110,125);x.fillStyle="#344054";x.font="500 16px -apple-system,sans-serif";ty=sy+31;for(const ln of wrapCanvasText(x,owner||"今月の巡回結果は上記のとおりです。",1060).slice(0,4)){x.fillText(ln,90,ty);ty+=24}
+ x.fillStyle="#98a2b3";x.font="500 12px -apple-system,sans-serif";x.fillText("月次判定：当月に確認した最も注意度の高い判定を表示（× ＞ △ ＞ ○ ＞ －）",65,1698);
  pages.push(c);
- // PAGE 2+: latest representative photo for each category
- let reps=[];CATEGORIES.forEach(def=>{let cand=[];m.rs.forEach(r=>{let cat=r.categories?.find(c=>c.name===def.name);(cat?.representativePhotos||[]).forEach(ph=>cand.push({cat:def.name,date:normalizeHistoryDate(r.date),src:ph.data||ph.src||ph.url||ph}))});cand.sort((a,b)=>b.date.localeCompare(a.date));if(cand[0])reps.push(cand[0])});
- const drawPhoto=async(ctx,src,bx,by,bw,bh)=>{ctx.fillStyle="#f2f4f7";ctx.fillRect(bx,by,bw,bh);try{let img=await loadImage(src),sc=Math.min(bw/img.width,bh/img.height),dw=img.width*sc,dh=img.height*sc;ctx.drawImage(img,bx+(bw-dw)/2,by+(bh-dh)/2,dw,dh)}catch(e){}};
- for(let n=0;n<reps.length;n+=6){let [pc,ctx]=make();header(ctx,"月次管理報告書　巡回写真",`${m.p?.name||""}　${m.ym.replace("-","年")}月　代表写真`);let batch=reps.slice(n,n+6);for(let k=0;k<batch.length;k++){let col=k%2,row=Math.floor(k/2),bx=65+col*565,by=150+row*510,bw=520,bh=385;await drawPhoto(ctx,batch[k].src,bx,by,bw,bh);ctx.fillStyle="#18365b";ctx.font="800 20px -apple-system,sans-serif";ctx.fillText(batch[k].cat,bx,by+417);ctx.fillStyle="#667085";ctx.font="500 16px -apple-system,sans-serif";ctx.fillText(`撮影日 ${batch[k].date}`,bx,by+442)}pages.push(pc)}
- // issue pages: all △/× issue photos, with inspection and owner comments
- let issues=[];itemRows.filter(r=>r.status==="×"||r.status==="△").sort((a,b)=>(rank[b.status]-rank[a.status])).forEach(r=>{let key=r.cat+" / "+r.item;let records=r.seen.filter(v=>v.status==="×"||v.status==="△");records.forEach(rec=>{(rec.photos||[]).forEach(ph=>issues.push({key,status:rec.status,date:rec.date,src:ph.data||ph.src||ph.url||ph,inspection:rec.comment||"",owner:ownerMap[key]||""}))})});
- for(let n=0;n<issues.length;n+=2){let [pc,ctx]=make();header(ctx,"月次管理報告書　指摘・経過観察事項",`${m.p?.name||""}　${m.ym.replace("-","年")}月`);let batch=issues.slice(n,n+2);for(let k=0;k<batch.length;k++){let v=batch[k],bx=65,by=155+k*785,bw=1110,bh=500;ctx.fillStyle=v.status==="×"?"#fff1f1":"#fff8e8";ctx.fillRect(bx,by,bw,50);ctx.fillStyle=statusColor(v.status);ctx.font="800 22px -apple-system,sans-serif";ctx.fillText(`${v.status} ${v.key}`,bx+15,by+33);ctx.fillStyle="#667085";ctx.font="500 16px -apple-system,sans-serif";ctx.textAlign="right";ctx.fillText(v.date,bx+bw-15,by+33);ctx.textAlign="left";await drawPhoto(ctx,v.src,bx,by+65,520,420);let tx=620,ty=by+90;ctx.fillStyle="#18365b";ctx.font="800 19px -apple-system,sans-serif";ctx.fillText("巡回時コメント",tx,ty);ty+=30;ctx.fillStyle="#475467";ctx.font="500 17px -apple-system,sans-serif";for(const ln of wrapCanvasText(ctx,v.inspection||"記載なし",530).slice(0,6)){ctx.fillText(ln,tx,ty);ty+=24}ty+=22;ctx.fillStyle="#18365b";ctx.font="800 19px -apple-system,sans-serif";ctx.fillText("オーナー様向けコメント",tx,ty);ty+=30;ctx.fillStyle="#475467";ctx.font="500 17px -apple-system,sans-serif";for(const ln of wrapCanvasText(ctx,v.owner||v.inspection||"記載なし",530).slice(0,7)){ctx.fillText(ln,tx,ty);ty+=24}}pages.push(pc)}
+ // PAGE 2+: only when there are △/× issue photos. Two issues per page.
+ let issues=[];itemRows.filter(r=>r.status==="×"||r.status==="△").sort((a,b)=>(rank[b.status]-rank[a.status])).forEach(r=>{let key=r.cat+" / "+r.item;let records=r.seen.filter(v=>v.status==="×"||v.status==="△");records.forEach(rec=>{let photos=rec.photos||[];if(photos.length){photos.forEach(ph=>issues.push({key,status:rec.status,date:rec.date,src:ph.data||ph.src||ph.url||ph,inspection:rec.comment||"",owner:ownerMap[key]||""}))}else{issues.push({key,status:rec.status,date:rec.date,src:null,inspection:rec.comment||"",owner:ownerMap[key]||""})}})});
+ for(let n=0;n<issues.length;n+=2){let [pc,ctx]=make();header(ctx,"月次管理報告書　指摘・経過観察事項",`${m.p?.name||""}　${m.ym.replace("-","年")}月`);let batch=issues.slice(n,n+2);for(let k=0;k<batch.length;k++){let v=batch[k],bx=65,by=155+k*785,bw=1110;ctx.fillStyle=statusBg(v.status);ctx.fillRect(bx,by,bw,52);ctx.fillStyle=statusColor(v.status);ctx.font="800 22px -apple-system,sans-serif";ctx.fillText(`${v.status} ${v.key}`,bx+15,by+34);ctx.fillStyle="#667085";ctx.font="500 16px -apple-system,sans-serif";ctx.textAlign="right";ctx.fillText(v.date,bx+bw-15,by+34);ctx.textAlign="left";await drawPhoto(ctx,v.src,bx,by+68,520,420);let tx=620,ty=by+96;ctx.fillStyle="#173a63";ctx.font="800 19px -apple-system,sans-serif";ctx.fillText("巡回時コメント",tx,ty);ty+=32;ctx.fillStyle="#475467";ctx.font="500 17px -apple-system,sans-serif";for(const ln of wrapCanvasText(ctx,v.inspection||"記載なし",530).slice(0,6)){ctx.fillText(ln,tx,ty);ty+=24}ty+=26;ctx.fillStyle="#173a63";ctx.font="800 19px -apple-system,sans-serif";ctx.fillText("オーナー様向けコメント",tx,ty);ty+=32;ctx.fillStyle="#475467";ctx.font="500 17px -apple-system,sans-serif";for(const ln of wrapCanvasText(ctx,v.owner||v.inspection||"記載なし",530).slice(0,7)){ctx.fillText(ln,tx,ty);ty+=24}}pages.push(pc)}
  return pages;
 }
 async function buildReportCanvases(){
@@ -922,13 +928,13 @@ async function previewPDF(){
  }
 }
 
-function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;localStorage.removeItem("inspection_draft");draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.9.1");updateDraftInfo();}
+function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;localStorage.removeItem("inspection_draft");draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.9.2");updateDraftInfo();}
 function resumeDraft(){let d=JSON.parse(localStorage.getItem("inspection_draft")||"null");if(!d)return;draft=d;current=0;sections("inspection");renderCategory();}
 function saveDraft(){try{localStorage.setItem("inspection_draft",JSON.stringify(draft));updateDraftInfo()}catch(e){alert("iPhone内の保存容量が不足しました。不要な写真を削除してください。")}}
 function updateDraftInfo(){let d=JSON.parse(localStorage.getItem("inspection_draft")||"null");draftInfo.textContent=d?`${d.property.name} / ${d.date} の巡回データがあります`:"現在、作業中の巡回はありません";let b=document.getElementById("resumeBtn");if(b)b.style.display=d?"block":"none"}
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 updateDraftInfo();
-if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=191",{updateViaCache:"none"}).catch(()=>{}));}
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=192",{updateViaCache:"none"}).catch(()=>{}));}
 </script>
 
 <script>
