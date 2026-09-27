@@ -41,7 +41,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 
 .searchbox{margin-bottom:12px}.property-actions{display:flex;gap:6px;margin-top:8px}
 .smallbtn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px 10px;font-size:12px;font-weight:750;color:var(--navy)}
-.smallbtn.delete{color:var(--bad)}.prop-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.smallbtn.delete{color:var(--bad)}.sort-handle{border:1px solid var(--line);background:#f7f9fc;border-radius:10px;padding:8px 11px;font-size:20px;line-height:1;color:var(--navy);font-weight:900;touch-action:none;user-select:none;-webkit-user-select:none}.property-card.dragging{opacity:.55;transform:scale(.99)}.property-card.drag-over{border-color:#7f9fbe;box-shadow:0 0 0 2px #dbe8f4 inset}.sort-tools{display:flex;gap:8px;margin-bottom:10px}.sort-tools button{flex:1}.prop-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
 .meta-chip{font-size:11px;padding:4px 7px;border-radius:8px;background:#f0f4f8;color:#526174}
 .meta-chip.alert{background:#fff1f1;color:var(--bad)}.meta-chip.warn{background:#fff7e8;color:#8b5d0b}
 .list-title{font-size:13px;font-weight:850;color:#667085;margin:4px 2px 9px}
@@ -70,7 +70,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="brand">PROPERTY INSPECTION · V1.10.6</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.10.6</div></header>
+<header class="top"><div class="brand">PROPERTY INSPECTION · V1.10.7</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.10.7</div></header>
 <main>
 <section id="home">
  <div class="home-dashboard">
@@ -122,6 +122,8 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
  <div class="home-nav"><button class="home-btn" onclick="goHome()">⌂ ホーム</button></div>
  <div class="card searchbox"><input id="propertySearch" placeholder="物件名・住所で検索" oninput="renderProperties(this.value)"></div>
  <div class="list-title">登録済み物件</div>
+ <div class="sort-tools"><button class="smallbtn" onclick="sortPropertiesKana()">五十音順に並べる</button><button class="smallbtn" onclick="resetPropertyOrder()">登録順に戻す</button></div>
+ <p class="notice" style="text-align:left;margin-top:0">右側の「≡」を押したまま上下に動かすと、巡回しやすい順番に並べ替えできます。</p>
  <div id="propertyList"></div>
  <button class="secondary" onclick="showAddProperty()">＋ 新しい物件を登録</button>
  <p class="notice">物件登録は初回のみ。次回以降は一覧から選択できます。</p>
@@ -213,7 +215,7 @@ async function exportInspectionBackup(){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.10.6");
+ title("巡回点検","iPhone・iPad 現場点検 V1.10.7");
  updateHome();
  refreshDraftInfo();
  syncInspectorInput();
@@ -221,7 +223,32 @@ function goHome(){
 }
 function refreshHome(){goHome()}
 function title(t,s=""){document.getElementById("pageTitle").textContent=t;document.getElementById("pageSub").textContent=s}
-function props(){return JSON.parse(localStorage.getItem("inspection_properties")||"[]")}
+function props(){
+ let p=JSON.parse(localStorage.getItem("inspection_properties")||"[]");
+ let changed=false;
+ p.forEach((x,i)=>{if(!Number.isFinite(Number(x.sortOrder))){x.sortOrder=i;changed=true}});
+ p.sort((a,b)=>Number(a.sortOrder??0)-Number(b.sortOrder??0));
+ if(changed)localStorage.setItem("inspection_properties",JSON.stringify(p));
+ return p;
+}
+function savePropertyOrder(p){p.forEach((x,i)=>x.sortOrder=i);localStorage.setItem("inspection_properties",JSON.stringify(p))}
+function moveProperty(fromId,toId){
+ if(!fromId||!toId||fromId===toId)return;
+ let p=props(),from=p.findIndex(x=>x.id===fromId),to=p.findIndex(x=>x.id===toId);if(from<0||to<0)return;
+ let [m]=p.splice(from,1);p.splice(to,0,m);savePropertyOrder(p);renderProperties(document.getElementById("propertySearch")?.value||"");
+}
+function sortPropertiesKana(){let p=props().sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"ja"));savePropertyOrder(p);renderProperties(document.getElementById("propertySearch")?.value||"")}
+function resetPropertyOrder(){let p=props().sort((a,b)=>String(a.id||"").localeCompare(String(b.id||"")));savePropertyOrder(p);renderProperties(document.getElementById("propertySearch")?.value||"")}
+let draggingPropertyId=null;
+function propertyDragStart(e,id){draggingPropertyId=id;e.currentTarget.closest(".property-card")?.classList.add("dragging");if(e.dataTransfer){e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",id)}}
+function propertyDragEnd(e){document.querySelectorAll(".property-card").forEach(x=>x.classList.remove("dragging","drag-over"));draggingPropertyId=null}
+function propertyDragOver(e,id){e.preventDefault();document.querySelectorAll(".property-card").forEach(x=>x.classList.remove("drag-over"));e.currentTarget.classList.add("drag-over")}
+function propertyDrop(e,id){e.preventDefault();let from=draggingPropertyId||(e.dataTransfer&&e.dataTransfer.getData("text/plain"));moveProperty(from,id);propertyDragEnd(e)}
+let touchSort={id:null,target:null};
+function propertyTouchStart(e,id){touchSort.id=id;touchSort.target=e.currentTarget.closest(".property-card");touchSort.target?.classList.add("dragging")}
+function propertyTouchMove(e){if(!touchSort.id)return;e.preventDefault();let t=e.touches[0],el=document.elementFromPoint(t.clientX,t.clientY)?.closest(".property-card");document.querySelectorAll(".property-card").forEach(x=>x.classList.remove("drag-over"));if(el&&el!==touchSort.target)el.classList.add("drag-over")}
+function propertyTouchEnd(e){if(!touchSort.id)return;let t=e.changedTouches[0],el=document.elementFromPoint(t.clientX,t.clientY)?.closest(".property-card"),to=el?.dataset?.propertyId;if(to)moveProperty(touchSort.id,to);document.querySelectorAll(".property-card").forEach(x=>x.classList.remove("dragging","drag-over"));touchSort={id:null,target:null}}
+
 function showProperties(){sections("properties");title("物件を選択","巡回する物件を選んでください");renderProperties()}
 function showAddProperty(id=null){
  editingPropertyId=id;sections("addProperty");
@@ -232,7 +259,7 @@ function saveProperty(){
  let n=propName.value.trim();if(!n)return alert("物件名を入力してください");
  let p=props();
  if(editingPropertyId){let i=p.findIndex(x=>x.id===editingPropertyId);if(i>=0)p[i]={...p[i],name:n,address:propAddress.value.trim(),memo:propMemo.value.trim()};}
- else p.push({id:crypto.randomUUID?crypto.randomUUID():Date.now().toString(),name:n,address:propAddress.value.trim(),memo:propMemo.value.trim()});
+ else p.push({id:crypto.randomUUID?crypto.randomUUID():Date.now().toString(),name:n,address:propAddress.value.trim(),memo:propMemo.value.trim(),sortOrder:p.length});
  localStorage.setItem("inspection_properties",JSON.stringify(p));editingPropertyId=null;showProperties();
 }
 function getHistoryForProperty(id){return []} // V1.8: 履歴本体はIndexedDBで管理
@@ -245,7 +272,7 @@ function renderProperties(q=""){
  let p=props(),el=document.getElementById("propertyList");q=(q||"").trim().toLowerCase();
  if(q)p=p.filter(x=>(x.name+" "+(x.address||"")).toLowerCase().includes(q));
  if(!p.length){el.innerHTML='<div class="card sub">該当する物件がありません。</div>';return}
- el.innerHTML=p.map(x=>{let st=previousStats(x.id);return `<div class="card"><div class="property" onclick="startInspection('${x.id}')"><div><b>${esc(x.name)}</b><small>${esc(x.address||"住所未登録")}</small><div class="prop-meta"><span class="meta-chip">前回：${esc(st.date)}</span>${st.bad?`<span class="meta-chip alert">× ${st.bad}件</span>`:""}${st.warn?`<span class="meta-chip warn">△ ${st.warn}件</span>`:""}</div></div><span class="pill">巡回開始 ›</span></div><div class="property-actions"><button class="smallbtn" onclick="event.stopPropagation();showAddProperty('${x.id}')">編集</button><button class="smallbtn delete" onclick="event.stopPropagation();deleteProperty('${x.id}')">削除</button></div></div>`}).join("");
+ el.innerHTML=p.map(x=>{let st=previousStats(x.id);return `<div class="card property-card" data-property-id="${x.id}" ondragover="propertyDragOver(event,'${x.id}')" ondrop="propertyDrop(event,'${x.id}')"><div class="property"><div style="flex:1" onclick="startInspection('${x.id}')"><b>${esc(x.name)}</b><small>${esc(x.address||"住所未登録")}</small><div class="prop-meta"><span class="meta-chip">前回：${esc(st.date)}</span>${st.bad?`<span class="meta-chip alert">× ${st.bad}件</span>`:""}${st.warn?`<span class="meta-chip warn">△ ${st.warn}件</span>`:""}</div></div><button class="sort-handle" draggable="true" aria-label="並べ替え" title="押したまま上下に移動" onclick="event.stopPropagation()" ondragstart="propertyDragStart(event,'${x.id}')" ondragend="propertyDragEnd(event)" ontouchstart="propertyTouchStart(event,'${x.id}')" ontouchmove="propertyTouchMove(event)" ontouchend="propertyTouchEnd(event)">≡</button></div><div class="property-actions"><button class="smallbtn" onclick="startInspection('${x.id}')">巡回開始</button><button class="smallbtn" onclick="showAddProperty('${x.id}')">編集</button><button class="smallbtn delete" onclick="deleteProperty('${x.id}')">削除</button></div></div>`}).join("");
 }
 function deleteProperty(id){
  let p=props().find(x=>x.id===id);if(!p)return;
@@ -501,7 +528,7 @@ async function importProperties(e){
    let data=JSON.parse(await file.text());
    if(data.type!=="junkai-property-master"||!Array.isArray(data.properties))throw new Error();
    let current=props(),map=new Map(current.map(p=>[p.id,p]));
-   data.properties.forEach(p=>{if(p&&p.id&&p.name)map.set(p.id,{id:p.id,name:p.name,address:p.address||"",memo:p.memo||"",excludedCategories:Array.isArray(p.excludedCategories)?p.excludedCategories:[]})});
+   data.properties.forEach(p=>{if(p&&p.id&&p.name)map.set(p.id,{id:p.id,name:p.name,address:p.address||"",memo:p.memo||"",excludedCategories:Array.isArray(p.excludedCategories)?p.excludedCategories:[],sortOrder:Number.isFinite(Number(p.sortOrder))?Number(p.sortOrder):map.size})});
    localStorage.setItem("inspection_properties",JSON.stringify([...map.values()]));
    alert(`${data.properties.length}件の物件マスターを読み込みました。`);refreshHome();
  }catch(err){alert("巡回点検の物件マスターファイルを読み込めませんでした。")}
@@ -597,7 +624,7 @@ function snapshotDraft(){
  });
  return {
   id:"h_"+Date.now(), property:{...draft.property}, date:draft.date, inspector:draft.inspector||getInspectorName()||"",
-  storageMeta:{photoCount,photoBytes,recordedAt:new Date().toISOString(),version:"1.10.6"},
+  storageMeta:{photoCount,photoBytes,recordedAt:new Date().toISOString(),version:"1.10.7"},
   overall:draft.overall||"", startedAt:draft.startedAt||"", completedAt:new Date().toISOString(), savedAt:new Date().toISOString(),
   categories:draft.categories.map(c=>({name:c.name,comment:c.comment||"",notApplicable:!!c.notApplicable,representativePhotos:(c.representativePhotos||[]).map(ph=>({data:ph.data||ph.src||ph,monthlyCandidate:true})),items:c.items.map(i=>({
     name:i.name,status:i.status||"",comment:i.comment||"",photos:(i.photos||[]).map(p=>({data:p.data,comment:p.comment||"",monthlyCandidate:!!p.monthlyCandidate}))
@@ -1137,7 +1164,7 @@ async function previewPDF(){
  }
 }
 
-function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;localStorage.removeItem("inspection_draft");draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.10.6");updateDraftInfo();}
+function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;localStorage.removeItem("inspection_draft");draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.10.7");updateDraftInfo();}
 function resumeDraft(){let d=JSON.parse(localStorage.getItem("inspection_draft")||"null");if(!d)return;draft=d;current=0;sections("inspection");renderCategory();}
 function saveDraft(){try{localStorage.setItem("inspection_draft",JSON.stringify(draft));updateDraftInfo()}catch(e){alert("iPhone内の保存容量が不足しました。不要な写真を削除してください。")}}
 async function cleanupCompletedDraft(){
@@ -1148,7 +1175,7 @@ function updateDraftInfo(){let d=null;try{d=JSON.parse(localStorage.getItem("ins
 async function refreshDraftInfo(){await cleanupCompletedDraft();updateDraftInfo()}
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 refreshDraftInfo();syncInspectorInput();
-if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1106",{updateViaCache:"none"}).catch(()=>{}));}
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1107",{updateViaCache:"none"}).catch(()=>{}));}
 </script>
 
 <script>
