@@ -26,7 +26,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 .item{padding:12px 0;border-top:1px solid #edf0f3}.item:first-of-type{border-top:0}.item-head{font-weight:750;margin-bottom:8px}.mini-status{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.mini-status button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 2px;font-weight:800;font-size:13px}.mini-status button.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 .footer{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));z-index:5}.footer .inner{max-width:532px;margin:auto;display:flex;gap:9px}.footer button{flex:1}
 .notice{font-size:13px;color:var(--muted);text-align:center;margin-top:8px}.badge{display:inline-block;padding:4px 8px;border-radius:9px;background:#eef3f8;color:var(--navy);font-size:12px;font-weight:800}
-.summary-line{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #edf0f3}.danger{color:var(--bad);font-weight:800}
+.summary-line{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #edf0f3}.summary-link{cursor:pointer;border-radius:10px;padding:10px 8px;margin:0 -8px}.summary-link:active{background:#eef4fa}.summary-link b{color:var(--navy);text-decoration:underline;text-underline-offset:3px}.danger{color:var(--bad);font-weight:800}.validation-link{width:100%;text-align:left;border:1px solid #f3c7c3;background:#fff7f6;color:#8f2f28;border-radius:10px;padding:10px 11px;margin-top:7px;font-weight:750}.back-summary{margin:0 0 12px;background:#eef4fa;border:1px solid #cbd9e8;color:var(--navy);border-radius:12px;padding:11px;width:100%;font-weight:800}
 
 .photo-tools{margin-top:9px}
 .photo-add{width:100%;border:1px dashed #9fb0c3;background:#f7fafe;color:var(--navy);border-radius:11px;padding:10px;font-weight:800}
@@ -63,7 +63,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="brand">PROPERTY INSPECTION · V1.9.6</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.9.6</div></header>
+<header class="top"><div class="brand">PROPERTY INSPECTION · V1.9.7</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.9.7</div></header>
 <main>
 <section id="home">
  <div class="card"><h2 style="margin-top:0">定期巡回を開始</h2><p class="sub">登録済みの物件を選択して、現場で点検結果を記録します。</p><button class="primary" onclick="showProperties()">巡回点検を開始</button></div>
@@ -168,7 +168,7 @@ async function exportInspectionBackup(){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.9.6");
+ title("巡回点検","iPhone・iPad 現場点検 V1.9.7");
  updateHome();
  scrollTo(0,0);
 }
@@ -221,7 +221,7 @@ function renderCategory(){
  const na=!!d.notApplicable;
  const repBox=`<div class="card" style="background:#f7f9fc"><b>📷 代表写真</b><div class="sub">${c.name==="その他"?"異常がある場合のみ撮影":"月次報告用に代表写真を撮影してください。設備等がない場合は「該当なし」でスキップできます。"}</div><div style="display:grid;grid-template-columns:${c.name==="その他"?"1fr":"1fr 1fr"};gap:8px;margin-top:10px"><button class="secondary" onclick="chooseRepresentativePhoto()" ${na?'disabled style="opacity:.45"':''}>代表写真を撮影</button>${c.name!=="その他"?`<button class="secondary" onclick="toggleCategoryNotApplicable()" style="${na?'background:#667085;color:#fff;border-color:#667085':''}">${na?'✓ 該当なし':'－ 該当なし'}</button>`:""}</div>${na?'<div style="margin-top:10px;padding:10px;border-radius:10px;background:#eef2f6;color:#475467;font-weight:800">この物件では該当なしとして登録されています。代表写真の撮影は不要です。</div>':''}<div class="photo-grid">${(d.representativePhotos||[]).map((ph,j)=>`<div class="photo-card"><img src="${ph.data||ph.src||ph}"><div class="photo-actions"><span>代表写真 ${j+1}</span><button class="photo-delete" onclick="deleteRepresentativePhoto(${j})">削除</button></div></div>`).join("")}</div></div>`;
  const itemsHtml=na?`<div class="card" style="background:#fafafa"><b>${c.name} の点検項目</b><div class="sub" style="margin-top:6px">該当なしのため、配下の${c.items.length}項目はすべて「－」として記録します。</div></div>`:c.items.map((it,i)=>`<div class="item"><div class="item-head">${it}</div><div class="mini-status">${STATUS.map(s=>`<button class="${d.items[i].status===s?"active":""}" onclick="setStatus(${i},'${s}')">${s}</button>`).join("")}</div>${(d.items[i].status==="△"||d.items[i].status==="×")?`<div class="item-comment-box"><label style="font-weight:800;color:${d.items[i].status==="×"?"#a23b3b":"#a06a12"}">${d.items[i].status==="×"?"要対応コメント":"経過観察コメント"}（必須）</label><textarea data-item-comment="${i}" placeholder="状況・対応内容を入力してください" oninput="setItemComment(${i},this.value)">${esc(d.items[i].comment||"")}</textarea></div>`:""}<div class="photo-tools"><button class="photo-add" onclick="choosePhotos(${i})">📷 写真を追加</button>${renderPhotos(i)}</div></div>`).join("");
- categoryCard.innerHTML=`<div class="card"><div class="category-title">${c.name}</div><div class="category-desc">${c.desc}</div>${repBox}${itemsHtml}<label>このカテゴリーのコメント</label><textarea id="catComment" placeholder="気付いた点・対応が必要な内容など" oninput="setComment(this.value)">${esc(d.comment)}</textarea></div>`;
+ categoryCard.innerHTML=`${returnToSummary?`<button class="back-summary" onclick="backToSummary()">‹ 巡回内容の確認へ戻る</button>`:""}<div class="card"><div class="category-title">${c.name}</div><div class="category-desc">${c.desc}</div>${repBox}${itemsHtml}<label>このカテゴリーのコメント</label><textarea id="catComment" placeholder="気付いた点・対応が必要な内容など" oninput="setComment(this.value)">${esc(d.comment)}</textarea></div>${returnToSummary?`<button class="back-summary" onclick="backToSummary()">✓ 修正して巡回内容の確認へ戻る</button>`:""}`;
 }
 function persistCategoryApplicability(categoryName,notApplicable){
  let ps=props(),idx=ps.findIndex(p=>p.id===draft?.property?.id);if(idx<0)return;
@@ -403,17 +403,32 @@ function nextCategory(){
  if(!requirePhotoCommentBeforeNext()) return;if(current<CATEGORIES.length-1){current++;renderCategory();scrollTo(0,0)}else showSummary()}
 function prevCategory(){
  if(!requirePhotoCommentBeforeNext()) return;if(current>0){current--;renderCategory();scrollTo(0,0)}else{sections("properties");document.getElementById("footer").classList.add("hidden");title("物件を選択","巡回する物件を選んでください");renderProperties()}}
+function goToCategoryFromSummary(ci){
+ returnToSummary=true;current=ci;sections("inspection");renderCategory();scrollTo(0,0);
+}
+function backToSummary(){
+ if(!requirePhotoCommentBeforeNext())return;returnToSummary=false;showSummary();scrollTo(0,0);
+}
 function showSummary(){
  sections("summary");title("巡回確認",draft.property.name);
  let h="",un=0;
- draft.categories.forEach(c=>{
+ draft.categories.forEach((c,ci)=>{
    let x=c.items.filter(i=>i.status==="×").length,w=c.items.filter(i=>i.status==="△").length,u=c.items.filter(i=>!i.status).length;
    un+=u;let pc=c.items.reduce((n,i)=>n+((i.photos||[]).length),0);
-   h+=`<div class="summary-line"><span><b>${c.name}</b></span><span>${x?`<span class="danger">× ${x}</span>`:""} ${w?`△ ${w}`:""} ${u?`未 ${u}`:""} ${pc?`📷 ${pc}`:""}</span></div>`
+   let rep=(c.representativePhotos||[]).length;
+   h+=`<div class="summary-line summary-link" onclick="goToCategoryFromSummary(${ci})"><span><b>${c.name}</b><small style="display:block;color:#667085;margin-top:3px">タップしてこのページを修正</small></span><span>${x?`<span class="danger">× ${x}</span>`:""} ${w?`△ ${w}`:""} ${u?`未 ${u}`:""} ${rep?`📷代表 ${rep}`:""} ${pc?`📷指摘 ${pc}`:""} <span style="color:#18365b">›</span></span></div>`
  });
  summaryBody.innerHTML=h;
- completionWarning.innerHTML=un?`<div style="padding:11px;border-radius:12px;background:#fff3e5;color:#8a5a00;font-weight:800;margin-bottom:10px">未点検が ${un} 件あります</div>`:`<div style="padding:11px;border-radius:12px;background:#edf8f2;color:#26734d;font-weight:800;margin-bottom:10px">全項目の入力が完了しています</div>`;
+ let details=validateRequiredDetails();
+ renderCompletionWarning(details,un);
  overall.value=draft.overall||"";overall.oninput=()=>{draft.overall=overall.value;saveDraft()}
+}
+function renderCompletionWarning(details,un=0){
+ if(details&&details.length){
+   completionWarning.innerHTML=`<div style="padding:11px;border-radius:12px;background:#fff3e5;color:#8a5a00;font-weight:800;margin-bottom:10px">入力不足があります。下の項目をタップすると該当ページへ移動できます。${un?`（未点検 ${un}件）`:""}<div>${details.map(d=>`<button class="validation-link" onclick="goToCategoryFromSummary(${d.catIndex})">${esc(d.label)}　›</button>`).join("")}</div></div>`;
+ }else if(un){
+   completionWarning.innerHTML=`<div style="padding:11px;border-radius:12px;background:#fff3e5;color:#8a5a00;font-weight:800;margin-bottom:10px">未点検が ${un} 件あります。下の各大項目をタップして修正してください。</div>`;
+ }else completionWarning.innerHTML=`<div style="padding:11px;border-radius:12px;background:#edf8f2;color:#26734d;font-weight:800;margin-bottom:10px">全項目の入力が完了しています</div>`;
 }
 
 function exportProperties(){
@@ -505,18 +520,21 @@ async function deleteHistoryRecord(id){
 function itemComment(cat,item){
   return (item.photos||[]).map(p=>p.comment||"").find(Boolean) || cat.comment || "";
 }
-function validateRequired(){
- let misses=[];
- draft.categories.forEach(cat=>{
+function validateRequiredDetails(){
+ let out=[];
+ draft.categories.forEach((cat,ci)=>{
   if(cat.name!=="その他" && !cat.notApplicable && !(cat.representativePhotos||[]).length)
-   misses.push(`${cat.name}：代表写真を撮影するか「該当なし」を選択してください`);
+   out.push({catIndex:ci,label:`${cat.name}：代表写真を撮影するか「該当なし」を選択してください`});
+  cat.items.forEach(it=>{
+   if(!it.status)out.push({catIndex:ci,label:`${cat.name} / ${it.name}：判定が未入力です`});
+   if(it.status==="×"&&!(it.photos||[]).length)out.push({catIndex:ci,label:`${cat.name} / ${it.name}：要対応写真が必要です`});
+   if((it.status==="△"||it.status==="×")&&!(it.photos||[]).length)out.push({catIndex:ci,label:`${cat.name} / ${it.name}：${it.status==="×"?"要対応":"経過観察"}写真が必要です`});
+   if((it.status==="△"||it.status==="×")&&!(it.comment||"").trim())out.push({catIndex:ci,label:`${cat.name} / ${it.name}：${it.status==="×"?"要対応":"経過観察"}コメントが必要です`});
+  });
  });
- draft.categories.forEach(cat=>cat.items.forEach(it=>{
-  if(it.status==="×"&&!(it.photos||[]).length)misses.push(`${cat.name} / ${it.name}：要対応写真`);
-  if((it.status==="△"||it.status==="×")&&!(it.comment||"").trim())misses.push(`${cat.name} / ${it.name}：${it.status==="×"?"要対応":"経過観察"}コメント`);
- }));
- return [...new Set(misses)];
+ let seen=new Set();return out.filter(v=>{let k=v.catIndex+"|"+v.label;if(seen.has(k))return false;seen.add(k);return true});
 }
+function validateRequired(){return validateRequiredDetails().map(v=>v.label)}
 function snapshotDraft(){
  return {
   id:"h_"+Date.now(), property:{...draft.property}, date:draft.date,
@@ -539,9 +557,12 @@ async function saveInspectionDataOnly(){
 async function validateAndSaveInspection(){
  if(!requirePhotoCommentBeforeNext()) return false;
  draft.overall=document.getElementById("overall")?.value||draft.overall||"";
- let misses=validateRequired();
+ let details=validateRequiredDetails(),misses=details.map(v=>v.label);
  if(misses.length){
-   alert("△・×は項目コメントと指摘写真が必須です。\n\n不足している項目：\n"+misses.join("\n"));
+   sections("summary");title("巡回確認",draft.property.name);
+   showSummary();
+   renderCompletionWarning(details,draft.categories.reduce((n,c)=>n+c.items.filter(i=>!i.status).length,0));
+   alert("入力不足があります。\n確認画面のオレンジ色の一覧から、修正したい項目をタップしてください。");
    return false;
  }
  saveDraft();
@@ -762,26 +783,26 @@ async function buildMonthlyCanvases(m){
  x.fillStyle="#667085";x.font="500 15px -apple-system,sans-serif";x.fillText(`巡回回数 ${m.rs.length}回　｜　巡回日 ${m.rs.map(r=>normalizeHistoryDate(r.date).slice(5).replace("-","/")).join("・")}`,65,180);
  // compact status strip
  const cards=[["○","良好",monthlyCounts["○"]],["△","経過観察",monthlyCounts["△"]],["×","要対応",monthlyCounts["×"]],["－","対象外",monthlyCounts["－"]]];
- cards.forEach((v,i)=>{let bx=65+i*280;x.fillStyle=statusBg(v[0]);x.fillRect(bx,197,255,42);x.fillStyle=statusColor(v[0]);x.font="900 19px -apple-system,sans-serif";x.fillText(`${v[0]} ${v[2]}`,bx+14,224);x.font="700 11px -apple-system,sans-serif";x.fillText(v[1],bx+88,223)});
+ cards.forEach((v,i)=>{let bx=65+i*280;x.fillStyle=statusBg(v[0]);x.fillRect(bx,195,255,30);x.fillStyle=statusColor(v[0]);x.font="900 15px -apple-system,sans-serif";x.fillText(`${v[0]} ${v[2]}`,bx+12,215);x.font="700 10px -apple-system,sans-serif";x.fillText(v[1],bx+72,214)});
  // all 24 checklist items in three compact columns
- x.fillStyle="#173a63";x.font="800 18px -apple-system,sans-serif";x.fillText("月次巡回点検結果（全項目）",65,274);
+ x.fillStyle="#173a63";x.font="800 18px -apple-system,sans-serif";x.fillText("月次巡回点検結果（全項目）",65,254);
  const colX=[65,438,811], colW=350, rowH=23, catH=27;
  let columns=[[],[],[]], heights=[0,0,0];
  CATEGORIES.forEach(def=>{let rows=itemRows.filter(r=>r.cat===def.name),h=catH+rows.length*rowH+6;let col=heights.indexOf(Math.min(...heights));columns[col].push({def,rows});heights[col]+=h});
- columns.forEach((blocks,col)=>{let y=290;blocks.forEach(block=>{
+ let checklistBottom=270;columns.forEach((blocks,col)=>{let y=270;blocks.forEach(block=>{
    x.fillStyle="#173a63";x.fillRect(colX[col],y,colW,catH);x.fillStyle="#fff";x.font="800 12px -apple-system,sans-serif";x.fillText(block.def.name,colX[col]+9,y+18);y+=catH;
    block.rows.forEach((r,idx)=>{x.fillStyle=idx%2===0?"#f8fafc":"#fff";x.fillRect(colX[col],y,colW,rowH);x.fillStyle="#344054";x.font="500 11px -apple-system,sans-serif";let label=r.item.length>18?r.item.slice(0,18)+"…":r.item;x.fillText(label,colX[col]+9,y+16);x.fillStyle=statusColor(r.status);x.font="900 15px -apple-system,sans-serif";x.textAlign="right";x.fillText(r.status,colX[col]+colW-10,y+16);x.textAlign="left";x.strokeStyle="#eaecf0";x.beginPath();x.moveTo(colX[col],y+rowH);x.lineTo(colX[col]+colW,y+rowH);x.stroke();y+=rowH});y+=6;
- })});
- // current-site photos: variable layout, no blank slots
- const photoTitleY=650;x.fillStyle="#173a63";x.font="800 18px -apple-system,sans-serif";x.fillText("現場写真",65,photoTitleY);
- const count=Math.min(reps.length,6), gap=22, areaX=65, areaW=1110, photoTop=667;
+ });checklistBottom=Math.max(checklistBottom,y)});
+ // current-site photos: variable layout, no blank slots. Start below the actual 3-column checklist to prevent overlap.
+ const photoTitleY=Math.max(610,checklistBottom+18);x.fillStyle="#173a63";x.font="800 18px -apple-system,sans-serif";x.fillText("現場写真",65,photoTitleY);
+ const count=Math.min(reps.length,6), gap=22, areaX=65, areaW=1110, photoTop=photoTitleY+17;
  if(count===0){x.fillStyle="#f7f9fc";x.fillRect(areaX,photoTop,areaW,245);x.fillStyle="#98a2b3";x.font="600 14px -apple-system,sans-serif";x.textAlign="center";x.fillText("現場写真なし",620,795);x.textAlign="left"}
  else{
    const rows=count<=3?1:2;const perRow=count<=3?count:3;const bh=rows===1?245:190;
    for(let k=0;k<count;k++){let row=rows===1?0:Math.floor(k/3),itemsThisRow=rows===1?count:(row===0?Math.min(3,count):count-3),pos=rows===1?k:(k%3),bw=(areaW-gap*(itemsThisRow-1))/itemsThisRow,bx=areaX+pos*(bw+gap),by=photoTop+row*(bh+42),v=reps[k];await drawPhoto(x,v.src,bx,by,bw,bh);x.fillStyle="#173a63";x.font="800 12px -apple-system,sans-serif";x.fillText(v.cat,bx,by+bh+18);x.fillStyle="#667085";x.font="500 10px -apple-system,sans-serif";x.textAlign="right";x.fillText(v.date,bx+bw,by+bh+18);x.textAlign="left"}
  }
  // monthly summary / management comment
- let sy=count<=3?1000:1120;x.fillStyle="#173a63";x.font="800 17px -apple-system,sans-serif";x.fillText("月間総括",65,sy);sy+=12;x.fillStyle="#f7f9fc";x.fillRect(65,sy,1110,105);x.fillStyle="#344054";x.font="500 14px -apple-system,sans-serif";let ty=sy+25;for(const ln of wrapCanvasText(x,summary||"特記事項なし",1060).slice(0,4)){x.fillText(ln,90,ty);ty+=20}
+ let photoBottom=count===0?photoTop+245:(count<=3?photoTop+275:photoTop+464);let sy=Math.max(photoBottom+24,1000);x.fillStyle="#173a63";x.font="800 17px -apple-system,sans-serif";x.fillText("月間総括",65,sy);sy+=12;x.fillStyle="#f7f9fc";x.fillRect(65,sy,1110,105);x.fillStyle="#344054";x.font="500 14px -apple-system,sans-serif";let ty=sy+25;for(const ln of wrapCanvasText(x,summary||"特記事項なし",1060).slice(0,4)){x.fillText(ln,90,ty);ty+=20}
  sy+=128;x.fillStyle="#173a63";x.font="800 17px -apple-system,sans-serif";x.fillText("管理会社コメント",65,sy);sy+=12;x.fillStyle="#f7f9fc";x.fillRect(65,sy,1110,95);x.fillStyle="#344054";x.font="500 14px -apple-system,sans-serif";ty=sy+25;for(const ln of wrapCanvasText(x,owner||"今月の巡回結果は上記のとおりです。",1060).slice(0,3)){x.fillText(ln,90,ty);ty+=20}
  x.fillStyle="#98a2b3";x.font="500 10px -apple-system,sans-serif";x.fillText("月次判定：当月に確認した最も注意度の高い判定を表示（× ＞ △ ＞ ○ ＞ －）",65,1695);
  pages.push(c);
@@ -962,7 +983,7 @@ async function previewPDF(){
  }
 }
 
-function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;localStorage.removeItem("inspection_draft");draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.9.6");updateDraftInfo();}
+function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;localStorage.removeItem("inspection_draft");draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.9.7");updateDraftInfo();}
 function resumeDraft(){let d=JSON.parse(localStorage.getItem("inspection_draft")||"null");if(!d)return;draft=d;current=0;sections("inspection");renderCategory();}
 function saveDraft(){try{localStorage.setItem("inspection_draft",JSON.stringify(draft));updateDraftInfo()}catch(e){alert("iPhone内の保存容量が不足しました。不要な写真を削除してください。")}}
 function updateDraftInfo(){let d=JSON.parse(localStorage.getItem("inspection_draft")||"null");draftInfo.textContent=d?`${d.property.name} / ${d.date} の巡回データがあります`:"現在、作業中の巡回はありません";let b=document.getElementById("resumeBtn");if(b)b.style.display=d?"block":"none"}
