@@ -70,7 +70,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="brand">PROPERTY INSPECTION · V1.10.5</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.10.5</div></header>
+<header class="top"><div class="brand">PROPERTY INSPECTION · V1.10.6</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.10.6</div></header>
 <main>
 <section id="home">
  <div class="home-dashboard">
@@ -95,7 +95,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
   <div class="home-group">
    <div class="home-group-title">⚙️ データ管理</div><div class="home-group-desc">写真容量・テストデータ・バックアップ</div>
    <button class="secondary home-action" onclick="showStorageManager()">データ容量管理</button>
-   <p class="sub" style="margin:9px 0 0">月別の写真容量確認・写真削除・テストデータ削除はこちら。</p>
+   <p class="sub" style="margin:9px 0 0">月別の保存状況確認・写真削除・テストデータ削除はこちら。</p>
   </div>
  </div>
  <input id="propertyImport" type="file" accept=".json,application/json" class="hidden" onchange="importProperties(event)">
@@ -104,7 +104,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 <section id="storageManager" class="hidden">
  <div class="home-nav"><button class="home-btn" onclick="goHome()">⌂ ホーム</button></div>
  <h1>データ容量管理</h1>
- <p class="sub">巡回写真の保存容量を確認し、月単位で整理できます。物件マスターは削除しません。</p>
+ <p class="sub">端末の保存状況を軽量表示し、月単位で整理できます。写真本体を読み込む詳細集計は行いません。物件マスターは削除しません。</p>
  <div id="storageSummary" class="card">容量を確認しています…</div>
  <div class="row" style="margin:0 0 12px">
   <button class="secondary" id="storageRecalcBtn" onclick="renderStorageManager()">再集計</button>
@@ -213,7 +213,7 @@ async function exportInspectionBackup(){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.10.5");
+ title("巡回点検","iPhone・iPad 現場点検 V1.10.6");
  updateHome();
  refreshDraftInfo();
  syncInspectorInput();
@@ -590,8 +590,14 @@ function validateRequiredDetails(){
 }
 function validateRequired(){return validateRequiredDetails().map(v=>v.label)}
 function snapshotDraft(){
+ let photoCount=0,photoBytes=0;
+ (draft.categories||[]).forEach(c=>{
+  (c.representativePhotos||[]).forEach(p=>{photoCount++;photoBytes+=dataUrlBytes(p)});
+  (c.items||[]).forEach(i=>(i.photos||[]).forEach(p=>{photoCount++;photoBytes+=dataUrlBytes(p)}));
+ });
  return {
   id:"h_"+Date.now(), property:{...draft.property}, date:draft.date, inspector:draft.inspector||getInspectorName()||"",
+  storageMeta:{photoCount,photoBytes,recordedAt:new Date().toISOString(),version:"1.10.6"},
   overall:draft.overall||"", startedAt:draft.startedAt||"", completedAt:new Date().toISOString(), savedAt:new Date().toISOString(),
   categories:draft.categories.map(c=>({name:c.name,comment:c.comment||"",notApplicable:!!c.notApplicable,representativePhotos:(c.representativePhotos||[]).map(ph=>({data:ph.data||ph.src||ph,monthlyCandidate:true})),items:c.items.map(i=>({
     name:i.name,status:i.status||"",comment:i.comment||"",photos:(i.photos||[]).map(p=>({data:p.data,comment:p.comment||"",monthlyCandidate:!!p.monthlyCandidate}))
@@ -714,9 +720,9 @@ async function renderStorageManager(){
  sum.innerHTML='<b>保存状況を確認しています…</b><div class="sub" style="margin-top:6px">写真本体は読み込まず、軽量情報だけを確認しています。</div>';list.innerHTML="";if(rb){rb.disabled=true;rb.textContent="確認中…"}if(cb)cb.disabled=true;
  try{
   let r=await getLightStorageStats(),e=r.estimate,usage=e?.usage||0,quota=e?.quota||0;
-  sum.innerHTML=`<b>保存済み巡回 ${r.records}件</b>${e?`<div style="font-size:22px;font-weight:800;margin-top:8px">端末内のWeb保存領域：約 ${fmtMB(usage)}</div><div class="sub" style="margin-top:5px">${quota?`利用可能上限の目安 ${fmtMB(quota)}。`:""}この容量には巡回アプリ以外の同一Webサイト保存データが含まれる場合があります。</div>`:'<div class="sub" style="margin-top:7px">この端末ではブラウザの容量情報を取得できませんでした。</div>'}<button class="secondary" style="margin-top:10px" onclick="renderDetailedStorageManager()">写真枚数・月別容量を詳しく再計算</button>`;
+  sum.innerHTML=`<b>保存済み巡回 ${r.records}件</b>${e?`<div style="font-size:22px;font-weight:800;margin-top:8px">端末内のWeb保存領域：約 ${fmtMB(usage)}</div><div class="sub" style="margin-top:5px">${quota?`利用可能上限の目安 ${fmtMB(quota)}。`:""}この容量には巡回アプリ以外の同一Webサイト保存データが含まれる場合があります。</div>`:'<div class="sub" style="margin-top:7px">この端末ではブラウザの容量情報を取得できませんでした。</div>'}<div class="sub" style="margin-top:10px">安定性を優先し、写真本体を読み込む詳細集計は行いません。今後保存する巡回には写真枚数・概算容量を保存時に記録します。</div>`;
   let arr=[...r.groups.entries()].sort((a,b)=>b[0].localeCompare(a[0]));
-  list.innerHTML=arr.length?arr.map(([ym,n])=>`<div class="card"><div class="property"><div><b>${escapeHtml(ym.replace("-","年"))}月</b><small>巡回 ${n}件　※詳細容量は必要な時だけ再計算</small></div><span class="pill">端末内</span></div><div class="property-actions" style="margin-top:12px"><button class="smallbtn" onclick="deleteMonthPhotos('${ym}')">写真だけ削除</button><button class="smallbtn delete" onclick="deleteMonthData('${ym}')">巡回データごと削除</button></div></div>`).join(""):'<div class="card">保存済みの巡回データはありません。</div>';
+  list.innerHTML=arr.length?arr.map(([ym,n])=>`<div class="card"><div class="property"><div><b>${escapeHtml(ym.replace("-","年"))}月</b><small>巡回 ${n}件　※写真本体を開かない安全な集計</small></div><span class="pill">端末内</span></div><div class="property-actions" style="margin-top:12px"><button class="smallbtn" onclick="deleteMonthPhotos('${ym}')">写真だけ削除</button><button class="smallbtn delete" onclick="deleteMonthData('${ym}')">巡回データごと削除</button></div></div>`).join(""):'<div class="card">保存済みの巡回データはありません。</div>';
  }catch(e){console.error(e);sum.innerHTML='<b>保存状況を読み込めませんでした。</b><div class="sub" style="margin-top:7px">データは削除されていません。「再接続して集計」を押してください。</div>'}
  finally{if(rb){rb.disabled=false;rb.textContent="再集計"}if(cb)cb.disabled=false}
 }
@@ -1131,7 +1137,7 @@ async function previewPDF(){
  }
 }
 
-function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;localStorage.removeItem("inspection_draft");draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.10.5");updateDraftInfo();}
+function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;localStorage.removeItem("inspection_draft");draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.10.6");updateDraftInfo();}
 function resumeDraft(){let d=JSON.parse(localStorage.getItem("inspection_draft")||"null");if(!d)return;draft=d;current=0;sections("inspection");renderCategory();}
 function saveDraft(){try{localStorage.setItem("inspection_draft",JSON.stringify(draft));updateDraftInfo()}catch(e){alert("iPhone内の保存容量が不足しました。不要な写真を削除してください。")}}
 async function cleanupCompletedDraft(){
@@ -1142,7 +1148,7 @@ function updateDraftInfo(){let d=null;try{d=JSON.parse(localStorage.getItem("ins
 async function refreshDraftInfo(){await cleanupCompletedDraft();updateDraftInfo()}
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 refreshDraftInfo();syncInspectorInput();
-if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1105",{updateViaCache:"none"}).catch(()=>{}));}
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1106",{updateViaCache:"none"}).catch(()=>{}));}
 </script>
 
 <script>
