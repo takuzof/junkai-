@@ -63,7 +63,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="brand">PROPERTY INSPECTION · V1.10.0</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.10.0</div></header>
+<header class="top"><div class="brand">PROPERTY INSPECTION · V1.10.1</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.10.1</div></header>
 <main>
 <section id="home">
  <div class="card"><h2 style="margin-top:0">定期巡回を開始</h2><p class="sub">登録済みの物件を選択して、現場で点検結果を記録します。</p><button class="primary" onclick="showProperties()">巡回点検を開始</button></div>
@@ -142,10 +142,9 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
  <div class="card"><h2 style="margin-top:0">巡回内容の確認</h2><div id="completionWarning"></div><div id="summaryBody"></div></div>
  <div class="card"><label>総合コメント</label><textarea id="overall" placeholder="今回の巡回についての総合コメント"></textarea></div>
  <button class="primary" onclick="saveInspectionDataOnly()">点検データを保存</button>
- <button class="secondary" style="margin-top:9px" id="pdfShareBtn" onclick="validatedSharePDF()">PDFを作成して会社へ送る</button>
- <button class="secondary" style="margin-top:9px" onclick="validatedPreviewPDF()">PDFを作成して確認</button>
+ <button class="secondary" style="margin-top:9px" id="pdfShareBtn" onclick="validatedSharePDF()">PDFを作成・保存</button>
  <button class="secondary" style="margin-top:9px" onclick="discardCompleted()">送信・保存済みの巡回データを削除</button>
- <p class="notice">PDFはiPhone内で作成します。写真や点検データを外部サーバーへ送信しません。共有画面で「メール」等を選んで会社へ送信してください。</p>
+ <p class="notice">PDFは端末内で作成します。iPhone・iPadでは共有画面、Windows PCではPDFを直接保存します。写真や点検データを外部サーバーへ送信しません。</p>
 </section>
 </main>
 <div class="footer hidden" id="footer"><div class="inner"><button class="secondary" onclick="prevCategory()">戻る</button><button class="primary" onclick="nextCategory()">次へ</button></div></div>
@@ -185,7 +184,7 @@ async function exportInspectionBackup(){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.10.0");
+ title("巡回点検","iPhone・iPad 現場点検 V1.10.1");
  updateHome();
  scrollTo(0,0);
 }
@@ -593,24 +592,8 @@ async function validatedSharePDF(){
 }
 async function validatedPreviewPDF(){
  if(!draft||!(await validateAndSaveInspection()))return;
-
- // iPhone/Safariのポップアップ制限対策：
- // タップ直後に確認画面を確保し、その後PDFを生成する。
- let previewWin=window.open("","_blank");
- if(!previewWin){
-   alert("PDF確認画面を開けませんでした。Safariのポップアップ設定をご確認ください。");
-   return;
- }
- previewWin.document.write('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>PDF作成中</title><body style="font-family:-apple-system,sans-serif;padding:30px;text-align:center"><h2>PDFを作成しています…</h2><p>この画面はそのままお待ちください。</p></body>');
- try{
-   let blob=await createPDFBlob();
-   let url=URL.createObjectURL(blob);
-   previewWin.location.href=url;
-   setTimeout(()=>URL.revokeObjectURL(url),180000);
- }catch(e){
-   try{previewWin.close()}catch(_){}
-   alert("PDFを作成できませんでした。");
- }
+ // Safariのポップアップを使わず、生成したPDFを共有/保存する。
+ await createAndSharePDF();
 }
 let currentMonthlyRecords=[];
 async function showMonthly(){
@@ -773,6 +756,22 @@ async function buildMonthlyView(){
  <button class="primary" onclick="generateMonthlyPDF()">オーナー向け月次報告書PDFを作成</button>`;
  window._monthly={p,ym,rs,sm};
 }
+function isAppleMobile(){
+ const ua=navigator.userAgent||"";
+ return /iPhone|iPad|iPod/i.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+}
+function downloadBlob(blob,name){
+ const url=URL.createObjectURL(blob),a=document.createElement("a");
+ a.href=url;a.download=name;a.style.display="none";document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+async function shareOnIOSOrDownload(blob,name,titleText){
+ const file=new File([blob],name,{type:"application/pdf"});
+ if(isAppleMobile() && navigator.share && (!navigator.canShare||navigator.canShare({files:[file]}))){
+   try{await navigator.share({title:titleText||name,files:[file]});return "shared"}catch(e){if(e.name==="AbortError")return "cancelled"}
+ }
+ downloadBlob(blob,name);return "downloaded";
+}
 async function generateMonthlyPDF(){
  let m=window._monthly;
  if(!m){alert("先に「巡回履歴を集約」を押してください。");return}
@@ -783,13 +782,7 @@ async function generateMonthlyPDF(){
    // 通常の巡回報告書と同じPDF生成エンジンを使用
    let blob=makeImagePDF(canvases);
    let safe=(m.p?.name||"物件").replace(/[\\/:*?"<>|]/g,"_"), name=`${m.ym}_${safe}_月次管理報告書.pdf`;
-   let file=new File([blob],name,{type:"application/pdf"});
-   if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
-     try{await navigator.share({title:name,files:[file]});return}catch(e){if(e.name==="AbortError")return}
-   }
-   let url=URL.createObjectURL(blob),a=document.createElement("a");
-   a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
-   setTimeout(()=>URL.revokeObjectURL(url),30000);
+   await shareOnIOSOrDownload(blob,name,name);
  }catch(e){
    console.error("monthly pdf error",e);
    alert("オーナー向け月次PDFを作成できませんでした。\n"+(e?.message||String(e)));
@@ -831,13 +824,7 @@ async function generateMonthlyPDF(){
    // 通常の巡回報告書と同じPDF生成エンジンを使用
    let blob=makeImagePDF(canvases);
    let safe=(m.p?.name||"物件").replace(/[\\/:*?"<>|]/g,"_"), name=`${m.ym}_${safe}_月次管理報告書.pdf`;
-   let file=new File([blob],name,{type:"application/pdf"});
-   if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
-     try{await navigator.share({title:name,files:[file]});return}catch(e){if(e.name==="AbortError")return}
-   }
-   let url=URL.createObjectURL(blob),a=document.createElement("a");
-   a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
-   setTimeout(()=>URL.revokeObjectURL(url),30000);
+   await shareOnIOSOrDownload(blob,name,name);
  }catch(e){
    console.error("monthly pdf error",e);
    alert("オーナー向け月次PDFを作成できませんでした。\n"+(e?.message||String(e)));
@@ -1049,35 +1036,26 @@ function safeFileName(s){return String(s||"巡回点検").replace(/[\\/:*?"<>|]/
 async function createPDFBlob(){
  let btn=document.getElementById("pdfShareBtn");if(btn){btn.disabled=true;btn.textContent="PDFを作成中…"}
  try{return makeImagePDF(await buildReportCanvases())}
- finally{if(btn){btn.disabled=false;btn.textContent="PDFを作成して会社へ送る"}}
+ finally{if(btn){btn.disabled=false;btn.textContent="PDFを作成・保存"}}
 }
 async function createAndSharePDF(){
  if(!draft)return;
  try{
    let blob=await createPDFBlob(),name=`${draft.date.replace(/\//g,"-")}_${safeFileName(draft.property.name)}_巡回点検報告書.pdf`;
-   let file=new File([blob],name,{type:"application/pdf"});
-   if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
-     await navigator.share({title:"巡回点検報告書",text:`${draft.property.name} ${draft.date} 巡回点検報告書`,files:[file]});
-   }else{
-     let a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),30000);
-     alert("PDFを保存しました。iPhoneの共有メニューからメール送信してください。");
-   }
+   await shareOnIOSOrDownload(blob,name,"巡回点検報告書");
  }catch(e){if(e&&e.name!=="AbortError")alert("PDFの作成または共有に失敗しました。写真枚数を減らして再度お試しください。")}
 }
 async function previewPDF(){
- let w=window.open("","_blank");
- if(!w){alert("PDF確認画面を開けませんでした。");return;}
+ if(!draft)return;
  try{
-   let blob=await createPDFBlob(),url=URL.createObjectURL(blob);
-   w.location.href=url;
-   setTimeout(()=>URL.revokeObjectURL(url),180000);
+   let blob=await createPDFBlob(),name=`${draft.date.replace(/\//g,"-")}_${safeFileName(draft.property.name)}_巡回点検報告書.pdf`;
+   await shareOnIOSOrDownload(blob,name,"巡回点検報告書");
  }catch(e){
-   try{w.close()}catch(_){}
-   alert("PDFを作成できませんでした。");
+   if(e&&e.name!=="AbortError")alert("PDFを作成できませんでした。");
  }
 }
 
-function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;localStorage.removeItem("inspection_draft");draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.10.0");updateDraftInfo();}
+function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;localStorage.removeItem("inspection_draft");draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.10.1");updateDraftInfo();}
 function resumeDraft(){let d=JSON.parse(localStorage.getItem("inspection_draft")||"null");if(!d)return;draft=d;current=0;sections("inspection");renderCategory();}
 function saveDraft(){try{localStorage.setItem("inspection_draft",JSON.stringify(draft));updateDraftInfo()}catch(e){alert("iPhone内の保存容量が不足しました。不要な写真を削除してください。")}}
 function updateDraftInfo(){let d=JSON.parse(localStorage.getItem("inspection_draft")||"null");draftInfo.textContent=d?`${d.property.name} / ${d.date} の巡回データがあります`:"現在、作業中の巡回はありません";let b=document.getElementById("resumeBtn");if(b)b.style.display=d?"block":"none"}
