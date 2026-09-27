@@ -63,7 +63,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="brand">PROPERTY INSPECTION · V1.9.7</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.9.7</div></header>
+<header class="top"><div class="brand">PROPERTY INSPECTION · V1.9.8</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.9.8</div></header>
 <main>
 <section id="home">
  <div class="card"><h2 style="margin-top:0">定期巡回を開始</h2><p class="sub">登録済みの物件を選択して、現場で点検結果を記録します。</p><button class="primary" onclick="showProperties()">巡回点検を開始</button></div>
@@ -105,6 +105,9 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
   <label>物件</label><select id="monthProperty"></select>
   <label>対象月</label><input id="monthValue" type="month">
   <button class="primary" onclick="buildMonthlyView()">巡回履歴を集約</button>
+  <div class="row" style="margin-top:10px"><button class="secondary" onclick="exportMonthlyTransfer()">iPhone → PC用データを書き出す</button><button class="secondary" onclick="document.getElementById('monthlyTransferImport').click()">PCでデータを読み込む</button></div>
+  <input id="monthlyTransferImport" type="file" accept=".json,application/json" class="hidden" onchange="importMonthlyTransfer(event)">
+  <p class="notice" style="text-align:left">現場ではiPhoneから対象月のデータを書き出し、PCでこの画面から読み込むと、コメント編集とPDF作成ができます。</p>
  </div>
  <div id="monthlyResult"></div>
 </section>
@@ -168,7 +171,7 @@ async function exportInspectionBackup(){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.9.7");
+ title("巡回点検","iPhone・iPad 現場点検 V1.9.8");
  updateHome();
  scrollTo(0,0);
 }
@@ -220,7 +223,7 @@ function renderCategory(){
  title("巡回点検",draft.property.name);insProp.textContent=draft.property.name;insDate.textContent=draft.date;catCounter.textContent=`${current+1} / ${CATEGORIES.length}`;progressBar.style.width=((current+1)/CATEGORIES.length*100)+"%";
  const na=!!d.notApplicable;
  const repBox=`<div class="card" style="background:#f7f9fc"><b>📷 代表写真</b><div class="sub">${c.name==="その他"?"異常がある場合のみ撮影":"月次報告用に代表写真を撮影してください。設備等がない場合は「該当なし」でスキップできます。"}</div><div style="display:grid;grid-template-columns:${c.name==="その他"?"1fr":"1fr 1fr"};gap:8px;margin-top:10px"><button class="secondary" onclick="chooseRepresentativePhoto()" ${na?'disabled style="opacity:.45"':''}>代表写真を撮影</button>${c.name!=="その他"?`<button class="secondary" onclick="toggleCategoryNotApplicable()" style="${na?'background:#667085;color:#fff;border-color:#667085':''}">${na?'✓ 該当なし':'－ 該当なし'}</button>`:""}</div>${na?'<div style="margin-top:10px;padding:10px;border-radius:10px;background:#eef2f6;color:#475467;font-weight:800">この物件では該当なしとして登録されています。代表写真の撮影は不要です。</div>':''}<div class="photo-grid">${(d.representativePhotos||[]).map((ph,j)=>`<div class="photo-card"><img src="${ph.data||ph.src||ph}"><div class="photo-actions"><span>代表写真 ${j+1}</span><button class="photo-delete" onclick="deleteRepresentativePhoto(${j})">削除</button></div></div>`).join("")}</div></div>`;
- const itemsHtml=na?`<div class="card" style="background:#fafafa"><b>${c.name} の点検項目</b><div class="sub" style="margin-top:6px">該当なしのため、配下の${c.items.length}項目はすべて「－」として記録します。</div></div>`:c.items.map((it,i)=>`<div class="item"><div class="item-head">${it}</div><div class="mini-status">${STATUS.map(s=>`<button class="${d.items[i].status===s?"active":""}" onclick="setStatus(${i},'${s}')">${s}</button>`).join("")}</div>${(d.items[i].status==="△"||d.items[i].status==="×")?`<div class="item-comment-box"><label style="font-weight:800;color:${d.items[i].status==="×"?"#a23b3b":"#a06a12"}">${d.items[i].status==="×"?"要対応コメント":"経過観察コメント"}（必須）</label><textarea data-item-comment="${i}" placeholder="状況・対応内容を入力してください" oninput="setItemComment(${i},this.value)">${esc(d.items[i].comment||"")}</textarea></div>`:""}<div class="photo-tools"><button class="photo-add" onclick="choosePhotos(${i})">📷 写真を追加</button>${renderPhotos(i)}</div></div>`).join("");
+ const itemsHtml=na?`<div class="card" style="background:#fafafa"><b>${c.name} の点検項目</b><div class="sub" style="margin-top:6px">該当なしのため、配下の${c.items.length}項目はすべて「－」として記録します。</div></div>`:c.items.map((it,i)=>`<div class="item"><div class="item-head">${it}</div><div class="mini-status">${STATUS.map(s=>`<button class="${d.items[i].status===s?"active":""}" onclick="setStatus(${i},'${s}')">${s}</button>`).join("")}</div>${(d.items[i].status==="△"||d.items[i].status==="×")?`<div class="item-comment-box"><label style="font-weight:800;color:${d.items[i].status==="×"?"#a23b3b":"#a06a12"}">オーナー様向けコメント（必須）</label><textarea data-item-comment="${i}" placeholder="オーナー様へ報告する状況・対応内容を入力してください" oninput="setItemComment(${i},this.value)">${esc(d.items[i].comment||"")}</textarea></div>`:""}<div class="photo-tools"><button class="photo-add" onclick="choosePhotos(${i})">📷 写真を追加</button>${renderPhotos(i)}</div></div>`).join("");
  categoryCard.innerHTML=`${returnToSummary?`<button class="back-summary" onclick="backToSummary()">‹ 巡回内容の確認へ戻る</button>`:""}<div class="card"><div class="category-title">${c.name}</div><div class="category-desc">${c.desc}</div>${repBox}${itemsHtml}<label>このカテゴリーのコメント</label><textarea id="catComment" placeholder="気付いた点・対応が必要な内容など" oninput="setComment(this.value)">${esc(d.comment)}</textarea></div>${returnToSummary?`<button class="back-summary" onclick="backToSummary()">✓ 修正して巡回内容の確認へ戻る</button>`:""}`;
 }
 function persistCategoryApplicability(categoryName,notApplicable){
@@ -654,6 +657,31 @@ function summarizeMonthly(rs){
  });
  return {counts,issueMap,auto:parts.join(" ") || "今月の巡回では、特段の要対応・経過観察事項はありませんでした。"};
 }
+async function exportMonthlyTransfer(){
+ let pid=monthProperty.value,ym=monthValue.value;
+ if(!pid||!ym){alert("物件と対象月を選択してください。");return}
+ let rs=await monthRecords(pid,ym);
+ if(!rs.length){alert("この月の保存済み巡回記録はありません。");return}
+ let p=rs[0]?.property||props().find(x=>String(x.name)===String(pid))||{};
+ let payload={type:"junkai-monthly-transfer",version:"1.9.8",exportedAt:new Date().toISOString(),property:p,yearMonth:ym,records:rs};
+ let blob=new Blob([JSON.stringify(payload)],{type:"application/json"});
+ let safe=(p.name||"物件").replace(/[\\/:*?"<>|]/g,"_");let name=`${ym}_${safe}_月次報告データ.json`;
+ let file=new File([blob],name,{type:"application/json"});
+ if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){try{await navigator.share({title:name,files:[file]});return}catch(e){if(e.name==="AbortError")return}}
+ let url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+async function importMonthlyTransfer(e){
+ let f=e.target.files?.[0];if(!f)return;
+ try{
+  let data=JSON.parse(await f.text());
+  if(data.type!=="junkai-monthly-transfer"||!Array.isArray(data.records))throw new Error("月次報告データではありません。");
+  for(const r of data.records){if(!r.id)r.id=`import_${Date.now()}_${Math.random().toString(36).slice(2)}`;await saveHistoryRecord(r)}
+  await showMonthly();
+  monthProperty.value=String(data.property?.name||data.records[0]?.property?.name||"");monthValue.value=data.yearMonth||"";
+  await buildMonthlyView();
+  alert("月次報告データを読み込みました。PCでコメントを編集してPDFを作成できます。");
+ }catch(err){alert("月次報告データを読み込めませんでした。\n"+(err?.message||String(err)))}finally{e.target.value=""}
+}
 async function buildMonthlyView(){
  let pid=monthProperty.value,ym=monthValue.value;
  monthlyResult.innerHTML='<div class="card sub">巡回履歴を集約しています…</div>';
@@ -665,16 +693,16 @@ async function buildMonthlyView(){
    let last=arr[arr.length-1], id="own_"+Math.random().toString(36).slice(2);
    issueHtml+=`<div class="month-card"><h3>${escapeHtml(key)}</h3>
     <span class="badge">${arr.length}回確認</span><span class="badge">最新 ${escapeHtml(last.status)}</span>
-    <p>${arr.map(a=>`${escapeHtml(a.date)} ${escapeHtml(a.status)} ${escapeHtml(a.comment||"")}`).join("<br>")}</p>
-    <label>オーナー様向け個別コメント</label><textarea class="owner-text ownerIssue" data-key="${escapeHtml(key)}" placeholder="巡回コメントとは別に、オーナー様へ伝える内容を入力できます。"></textarea></div>`;
+    <p>${arr.map(a=>`${escapeHtml(a.date)} ${escapeHtml(a.status)}`).join("<br>")}</p>
+    <label>オーナー様向けコメント</label><textarea class="owner-text ownerIssue" data-key="${escapeHtml(key)}" placeholder="オーナー様へ報告する内容を入力・修正できます。">${escapeHtml([...new Set(arr.map(a=>a.comment).filter(Boolean))].join("／"))}</textarea></div>`;
  });
  monthlyResult.innerHTML=`<div class="card"><h2>${escapeHtml(p?.name||"")}　${escapeHtml(ym)} 月次管理報告</h2>
    <p><b>巡回回数：</b>${rs.length}回　<span class="badge">○ ${sm.counts["○"]}</span><span class="badge">△ ${sm.counts["△"]}</span><span class="badge">× ${sm.counts["×"]}</span><span class="badge">－ ${sm.counts["－"]}</span></p>
    <p><b>巡回日：</b>${rs.map(r=>r.date).join("、")}</p>
-   <label>月間まとめコメント（自動下書き・編集可）</label>
-   <textarea id="monthlySummary" class="owner-text">${escapeHtml(sm.auto)}</textarea>
-   <label>オーナー様向け月次個別コメント</label>
-   <textarea id="monthlyOwnerComment" class="owner-text" placeholder="今月全体について、オーナー様へ個別に伝える内容を入力"></textarea>
+   <label>月間総括（自動下書き・編集可）</label>
+   <textarea id="monthlySummary" class="owner-text" style="min-height:130px;font-size:17px">${escapeHtml(sm.auto)}</textarea>
+   <label>管理会社コメント</label>
+   <textarea id="monthlyOwnerComment" class="owner-text" style="min-height:120px;font-size:17px" placeholder="オーナー様へお伝えする管理会社からのコメントを入力"></textarea>
  </div>${issueHtml}
  <button class="primary" onclick="generateMonthlyPDF()">オーナー向け月次報告書PDFを作成</button>`;
  window._monthly={p,ym,rs,sm};
@@ -791,7 +819,7 @@ async function buildMonthlyCanvases(m){
  CATEGORIES.forEach(def=>{let rows=itemRows.filter(r=>r.cat===def.name),h=catH+rows.length*rowH+6;let col=heights.indexOf(Math.min(...heights));columns[col].push({def,rows});heights[col]+=h});
  let checklistBottom=270;columns.forEach((blocks,col)=>{let y=270;blocks.forEach(block=>{
    x.fillStyle="#173a63";x.fillRect(colX[col],y,colW,catH);x.fillStyle="#fff";x.font="800 12px -apple-system,sans-serif";x.fillText(block.def.name,colX[col]+9,y+18);y+=catH;
-   block.rows.forEach((r,idx)=>{x.fillStyle=idx%2===0?"#f8fafc":"#fff";x.fillRect(colX[col],y,colW,rowH);x.fillStyle="#344054";x.font="500 11px -apple-system,sans-serif";let label=r.item.length>18?r.item.slice(0,18)+"…":r.item;x.fillText(label,colX[col]+9,y+16);x.fillStyle=statusColor(r.status);x.font="900 15px -apple-system,sans-serif";x.textAlign="right";x.fillText(r.status,colX[col]+colW-10,y+16);x.textAlign="left";x.strokeStyle="#eaecf0";x.beginPath();x.moveTo(colX[col],y+rowH);x.lineTo(colX[col]+colW,y+rowH);x.stroke();y+=rowH});y+=6;
+   block.rows.forEach((r,idx)=>{x.fillStyle=idx%2===0?"#f8fafc":"#fff";x.fillRect(colX[col],y,colW,rowH);x.fillStyle="#344054";x.font="500 13px -apple-system,sans-serif";let label=r.item.length>16?r.item.slice(0,16)+"…":r.item;x.fillText(label,colX[col]+9,y+16);x.fillStyle=statusColor(r.status);x.font="900 15px -apple-system,sans-serif";x.textAlign="right";x.fillText(r.status,colX[col]+colW-10,y+16);x.textAlign="left";x.strokeStyle="#eaecf0";x.beginPath();x.moveTo(colX[col],y+rowH);x.lineTo(colX[col]+colW,y+rowH);x.stroke();y+=rowH});y+=6;
  });checklistBottom=Math.max(checklistBottom,y)});
  // current-site photos: variable layout, no blank slots. Start below the actual 3-column checklist to prevent overlap.
  const photoTitleY=Math.max(610,checklistBottom+18);x.fillStyle="#173a63";x.font="800 18px -apple-system,sans-serif";x.fillText("現場写真",65,photoTitleY);
@@ -802,13 +830,13 @@ async function buildMonthlyCanvases(m){
    for(let k=0;k<count;k++){let row=rows===1?0:Math.floor(k/3),itemsThisRow=rows===1?count:(row===0?Math.min(3,count):count-3),pos=rows===1?k:(k%3),bw=(areaW-gap*(itemsThisRow-1))/itemsThisRow,bx=areaX+pos*(bw+gap),by=photoTop+row*(bh+42),v=reps[k];await drawPhoto(x,v.src,bx,by,bw,bh);x.fillStyle="#173a63";x.font="800 12px -apple-system,sans-serif";x.fillText(v.cat,bx,by+bh+18);x.fillStyle="#667085";x.font="500 10px -apple-system,sans-serif";x.textAlign="right";x.fillText(v.date,bx+bw,by+bh+18);x.textAlign="left"}
  }
  // monthly summary / management comment
- let photoBottom=count===0?photoTop+245:(count<=3?photoTop+275:photoTop+464);let sy=Math.max(photoBottom+24,1000);x.fillStyle="#173a63";x.font="800 17px -apple-system,sans-serif";x.fillText("月間総括",65,sy);sy+=12;x.fillStyle="#f7f9fc";x.fillRect(65,sy,1110,105);x.fillStyle="#344054";x.font="500 14px -apple-system,sans-serif";let ty=sy+25;for(const ln of wrapCanvasText(x,summary||"特記事項なし",1060).slice(0,4)){x.fillText(ln,90,ty);ty+=20}
- sy+=128;x.fillStyle="#173a63";x.font="800 17px -apple-system,sans-serif";x.fillText("管理会社コメント",65,sy);sy+=12;x.fillStyle="#f7f9fc";x.fillRect(65,sy,1110,95);x.fillStyle="#344054";x.font="500 14px -apple-system,sans-serif";ty=sy+25;for(const ln of wrapCanvasText(x,owner||"今月の巡回結果は上記のとおりです。",1060).slice(0,3)){x.fillText(ln,90,ty);ty+=20}
+ let photoBottom=count===0?photoTop+245:(count<=3?photoTop+275:photoTop+464);let sy=Math.max(photoBottom+24,1000);x.fillStyle="#173a63";x.font="800 17px -apple-system,sans-serif";x.fillText("月間総括",65,sy);sy+=12;x.fillStyle="#f7f9fc";x.fillRect(65,sy,1110,105);x.fillStyle="#344054";x.font="500 16px -apple-system,sans-serif";let ty=sy+25;for(const ln of wrapCanvasText(x,summary||"特記事項なし",1060).slice(0,4)){x.fillText(ln,90,ty);ty+=23}
+ sy+=128;x.fillStyle="#173a63";x.font="800 17px -apple-system,sans-serif";x.fillText("管理会社コメント",65,sy);sy+=12;x.fillStyle="#f7f9fc";x.fillRect(65,sy,1110,95);x.fillStyle="#344054";x.font="500 16px -apple-system,sans-serif";ty=sy+25;for(const ln of wrapCanvasText(x,owner||"今月の巡回結果は上記のとおりです。",1060).slice(0,3)){x.fillText(ln,90,ty);ty+=23}
  x.fillStyle="#98a2b3";x.font="500 10px -apple-system,sans-serif";x.fillText("月次判定：当月に確認した最も注意度の高い判定を表示（× ＞ △ ＞ ○ ＞ －）",65,1695);
  pages.push(c);
  // PAGE 2+: only when there are △/× issue photos. Two issues per page.
  let issues=[];itemRows.filter(r=>r.status==="×"||r.status==="△").sort((a,b)=>(rank[b.status]-rank[a.status])).forEach(r=>{let key=r.cat+" / "+r.item;let records=r.seen.filter(v=>v.status==="×"||v.status==="△");records.forEach(rec=>{let photos=rec.photos||[];if(photos.length){photos.forEach(ph=>issues.push({key,status:rec.status,date:rec.date,src:ph.data||ph.src||ph.url||ph,inspection:rec.comment||"",owner:ownerMap[key]||""}))}else{issues.push({key,status:rec.status,date:rec.date,src:null,inspection:rec.comment||"",owner:ownerMap[key]||""})}})});
- for(let n=0;n<issues.length;n+=2){let [pc,ctx]=make();header(ctx,"月次管理報告書　指摘・経過観察事項",`${m.p?.name||""}　${m.ym.replace("-","年")}月`);let batch=issues.slice(n,n+2);for(let k=0;k<batch.length;k++){let v=batch[k],bx=65,by=155+k*785,bw=1110;ctx.fillStyle=statusBg(v.status);ctx.fillRect(bx,by,bw,52);ctx.fillStyle=statusColor(v.status);ctx.font="800 22px -apple-system,sans-serif";ctx.fillText(`${v.status} ${v.key}`,bx+15,by+34);ctx.fillStyle="#667085";ctx.font="500 16px -apple-system,sans-serif";ctx.textAlign="right";ctx.fillText(v.date,bx+bw-15,by+34);ctx.textAlign="left";await drawPhoto(ctx,v.src,bx,by+68,520,420);let tx=620,ty=by+96;ctx.fillStyle="#173a63";ctx.font="800 19px -apple-system,sans-serif";ctx.fillText("巡回時コメント",tx,ty);ty+=32;ctx.fillStyle="#475467";ctx.font="500 17px -apple-system,sans-serif";for(const ln of wrapCanvasText(ctx,v.inspection||"記載なし",530).slice(0,6)){ctx.fillText(ln,tx,ty);ty+=24}ty+=26;ctx.fillStyle="#173a63";ctx.font="800 19px -apple-system,sans-serif";ctx.fillText("オーナー様向けコメント",tx,ty);ty+=32;ctx.fillStyle="#475467";ctx.font="500 17px -apple-system,sans-serif";for(const ln of wrapCanvasText(ctx,v.owner||v.inspection||"記載なし",530).slice(0,7)){ctx.fillText(ln,tx,ty);ty+=24}}pages.push(pc)}
+ for(let n=0;n<issues.length;n+=2){let [pc,ctx]=make();header(ctx,"月次管理報告書　指摘・経過観察事項",`${m.p?.name||""}　${m.ym.replace("-","年")}月`);let batch=issues.slice(n,n+2);for(let k=0;k<batch.length;k++){let v=batch[k],bx=65,by=155+k*785,bw=1110;ctx.fillStyle=statusBg(v.status);ctx.fillRect(bx,by,bw,52);ctx.fillStyle=statusColor(v.status);ctx.font="800 22px -apple-system,sans-serif";ctx.fillText(`${v.status} ${v.key}`,bx+15,by+34);ctx.fillStyle="#667085";ctx.font="500 16px -apple-system,sans-serif";ctx.textAlign="right";ctx.fillText(v.date,bx+bw-15,by+34);ctx.textAlign="left";await drawPhoto(ctx,v.src,bx,by+68,520,420);let tx=620,ty=by+96;ctx.fillStyle="#173a63";ctx.font="800 21px -apple-system,sans-serif";ctx.fillText("オーナー様向けコメント",tx,ty);ty+=38;ctx.fillStyle="#475467";ctx.font="500 19px -apple-system,sans-serif";for(const ln of wrapCanvasText(ctx,v.owner||v.inspection||"記載なし",530).slice(0,12)){ctx.fillText(ln,tx,ty);ty+=28}}pages.push(pc)}
  return pages;
 }
 async function buildReportCanvases(){
@@ -983,7 +1011,7 @@ async function previewPDF(){
  }
 }
 
-function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;localStorage.removeItem("inspection_draft");draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.9.7");updateDraftInfo();}
+function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;localStorage.removeItem("inspection_draft");draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.9.8");updateDraftInfo();}
 function resumeDraft(){let d=JSON.parse(localStorage.getItem("inspection_draft")||"null");if(!d)return;draft=d;current=0;sections("inspection");renderCategory();}
 function saveDraft(){try{localStorage.setItem("inspection_draft",JSON.stringify(draft));updateDraftInfo()}catch(e){alert("iPhone内の保存容量が不足しました。不要な写真を削除してください。")}}
 function updateDraftInfo(){let d=JSON.parse(localStorage.getItem("inspection_draft")||"null");draftInfo.textContent=d?`${d.property.name} / ${d.date} の巡回データがあります`:"現在、作業中の巡回はありません";let b=document.getElementById("resumeBtn");if(b)b.style.display=d?"block":"none"}
