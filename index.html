@@ -70,7 +70,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="brand">PROPERTY INSPECTION · V1.12.3</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.12.3</div></header>
+<header class="top"><div class="brand">PROPERTY INSPECTION · V1.12.4</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.12.4</div></header>
 <main>
 <section id="home">
  <div class="home-dashboard">
@@ -215,7 +215,7 @@ async function exportInspectionBackup(){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.12.3");
+ title("巡回点検","iPhone・iPad 現場点検 V1.12.4");
  updateHome();
  refreshDraftInfo();
  syncInspectorInput();
@@ -692,7 +692,7 @@ function snapshotDraft(){
  };
 }
 async function saveCurrentInspection(){
- // V1.12.3: 写真本体は PHOTO_STORE に1枚ずつ保存し、履歴には写真IDだけを保持する。
+ // V1.12.4: 写真本体は PHOTO_STORE に1枚ずつ保存し、履歴には写真IDだけを保持する。
  draft.completedAt=new Date().toISOString();let snap=snapshotDraft();snap.date=normalizeHistoryDate(snap.date);
  await migrateLegacyHistories();let db=await openJunkaiDB();
  // 先に写真を個別保存。巨大な巡回オブジェクトを複製しない。
@@ -1054,32 +1054,32 @@ async function buildMonthlyCanvases(m){
  // PAGE 1: compact owner-facing dashboard + all 24 checks + current-site photos
  let [c,x]=make();header(x,"月次管理報告書",`${m.p?.name||""}　${m.ym.replace("-","年")}月`);
  x.fillStyle="#1d2939";x.font="800 25px -apple-system,sans-serif";x.fillText("MONTHLY PROPERTY REPORT",65,153);
- x.fillStyle="#667085";x.font="500 15px -apple-system,sans-serif";x.fillText(`巡回回数 ${m.rs.length}回　｜　巡回日 ${m.rs.map(r=>normalizeHistoryDate(r.date).slice(5).replace("-","/")).join("・")}`,65,176);
+ x.fillStyle="#667085";x.font="500 17px -apple-system,sans-serif";x.fillText(`巡回回数 ${m.rs.length}回　｜　巡回日 ${m.rs.map(r=>normalizeHistoryDate(r.date).slice(5).replace("-","/")).join("・")}`,65,176);
  x.fillText(`点検者 ${[...new Set(m.rs.map(r=>r.inspector).filter(Boolean))].join("・")||"未記録"}`,65,198);
  // compact status strip
  const cards=[["○","良好",monthlyCounts["○"]],["△","経過観察",monthlyCounts["△"]],["×","要対応",monthlyCounts["×"]],["－","対象外",monthlyCounts["－"]]];
- cards.forEach((v,i)=>{let bx=65+i*280;x.fillStyle=statusBg(v[0]);x.fillRect(bx,195,255,30);x.fillStyle=statusColor(v[0]);x.font="900 15px -apple-system,sans-serif";x.fillText(`${v[0]} ${v[2]}`,bx+12,215);x.font="700 10px -apple-system,sans-serif";x.fillText(v[1],bx+72,214)});
+ cards.forEach((v,i)=>{let bx=65+i*280;x.fillStyle=statusBg(v[0]);x.fillRect(bx,195,255,30);x.fillStyle=statusColor(v[0]);x.font="900 17px -apple-system,sans-serif";x.fillText(`${v[0]} ${v[2]}`,bx+12,215);x.font="700 15px -apple-system,sans-serif";x.fillText(v[1],bx+72,214)});
  // all 24 checklist items in three compact columns
  x.fillStyle="#173a63";x.font="800 18px -apple-system,sans-serif";x.fillText("月次巡回点検結果（全項目）",65,254);
- const colX=[65,438,811], colW=350, rowH=23, catH=27;
+ const colX=[65,438,811], colW=350, rowH=27, catH=30;
  let columns=[[],[],[]], heights=[0,0,0];
  CATEGORIES.forEach(def=>{let rows=itemRows.filter(r=>r.cat===def.name),h=catH+rows.length*rowH+6;let col=heights.indexOf(Math.min(...heights));columns[col].push({def,rows});heights[col]+=h});
  let checklistBottom=270;columns.forEach((blocks,col)=>{let y=270;blocks.forEach(block=>{
-   x.fillStyle="#173a63";x.fillRect(colX[col],y,colW,catH);x.fillStyle="#fff";x.font="800 12px -apple-system,sans-serif";x.fillText(block.def.name,colX[col]+9,y+18);y+=catH;
-   block.rows.forEach((r,idx)=>{x.fillStyle=idx%2===0?"#f8fafc":"#fff";x.fillRect(colX[col],y,colW,rowH);x.fillStyle="#344054";x.font="500 13px -apple-system,sans-serif";let label=r.item.length>16?r.item.slice(0,16)+"…":r.item;x.fillText(label,colX[col]+9,y+16);x.fillStyle=statusColor(r.status);x.font="900 15px -apple-system,sans-serif";x.textAlign="right";x.fillText(r.status,colX[col]+colW-10,y+16);x.textAlign="left";x.strokeStyle="#eaecf0";x.beginPath();x.moveTo(colX[col],y+rowH);x.lineTo(colX[col]+colW,y+rowH);x.stroke();y+=rowH});y+=6;
+   x.fillStyle="#173a63";x.fillRect(colX[col],y,colW,catH);x.fillStyle="#fff";x.font="800 17px -apple-system,sans-serif";x.fillText(block.def.name,colX[col]+9,y+21);y+=catH;
+   block.rows.forEach((r,idx)=>{x.fillStyle=idx%2===0?"#f8fafc":"#fff";x.fillRect(colX[col],y,colW,rowH);x.fillStyle="#344054";x.font="500 17px -apple-system,sans-serif";let label=r.item.length>15?r.item.slice(0,15)+"…":r.item;x.fillText(label,colX[col]+9,y+19);x.fillStyle=statusColor(r.status);x.font="900 18px -apple-system,sans-serif";x.textAlign="right";x.fillText(r.status,colX[col]+colW-10,y+19);x.textAlign="left";x.strokeStyle="#eaecf0";x.beginPath();x.moveTo(colX[col],y+rowH);x.lineTo(colX[col]+colW,y+rowH);x.stroke();y+=rowH});y+=6;
  });checklistBottom=Math.max(checklistBottom,y)});
  // current-site photos: variable layout, no blank slots. Start below the actual 3-column checklist to prevent overlap.
  const photoTitleY=Math.max(610,checklistBottom+18);x.fillStyle="#173a63";x.font="800 18px -apple-system,sans-serif";x.fillText("現場写真",65,photoTitleY);
  const count=Math.min(reps.length,6), gap=22, areaX=65, areaW=1110, photoTop=photoTitleY+17;
  if(count===0){x.fillStyle="#f7f9fc";x.fillRect(areaX,photoTop,areaW,245);x.fillStyle="#98a2b3";x.font="600 14px -apple-system,sans-serif";x.textAlign="center";x.fillText("現場写真なし",620,795);x.textAlign="left"}
  else{
-   const rows=count<=3?1:2;const perRow=count<=3?count:3;const bh=rows===1?245:190;
-   for(let k=0;k<count;k++){let row=rows===1?0:Math.floor(k/3),itemsThisRow=rows===1?count:(row===0?Math.min(3,count):count-3),pos=rows===1?k:(k%3),bw=(areaW-gap*(itemsThisRow-1))/itemsThisRow,bx=areaX+pos*(bw+gap),by=photoTop+row*(bh+42),v=reps[k];await drawPhoto(x,v.src,bx,by,bw,bh);x.fillStyle="#173a63";x.font="800 12px -apple-system,sans-serif";x.fillText(v.cat,bx,by+bh+18);x.fillStyle="#667085";x.font="500 10px -apple-system,sans-serif";x.textAlign="right";x.fillText(v.date,bx+bw,by+bh+18);x.textAlign="left"}
+   const rows=count<=3?1:2;const perRow=count<=3?count:3;const bh=rows===1?235:175;
+   for(let k=0;k<count;k++){let row=rows===1?0:Math.floor(k/3),itemsThisRow=rows===1?count:(row===0?Math.min(3,count):count-3),pos=rows===1?k:(k%3),bw=(areaW-gap*(itemsThisRow-1))/itemsThisRow,bx=areaX+pos*(bw+gap),by=photoTop+row*(bh+42),v=reps[k];await drawPhoto(x,v.src,bx,by,bw,bh);x.fillStyle="#173a63";x.font="800 17px -apple-system,sans-serif";x.fillText(v.cat,bx,by+bh+20);x.fillStyle="#667085";x.font="500 15px -apple-system,sans-serif";x.textAlign="right";x.fillText(v.date,bx+bw,by+bh+18);x.textAlign="left"}
  }
  // monthly summary / management comment
- let photoBottom=count===0?photoTop+245:(count<=3?photoTop+275:photoTop+464);let sy=Math.max(photoBottom+24,1000);x.fillStyle="#173a63";x.font="800 17px -apple-system,sans-serif";x.fillText("月間総括",65,sy);sy+=12;x.fillStyle="#f7f9fc";x.fillRect(65,sy,1110,105);x.fillStyle="#344054";x.font="500 16px -apple-system,sans-serif";let ty=sy+25;for(const ln of wrapCanvasText(x,summary||"特記事項なし",1060).slice(0,4)){x.fillText(ln,90,ty);ty+=23}
+ let photoBottom=count===0?photoTop+245:(count<=3?photoTop+270:photoTop+430);let sy=Math.max(photoBottom+24,1000);x.fillStyle="#173a63";x.font="800 17px -apple-system,sans-serif";x.fillText("月間総括",65,sy);sy+=12;x.fillStyle="#f7f9fc";x.fillRect(65,sy,1110,105);x.fillStyle="#344054";x.font="500 16px -apple-system,sans-serif";let ty=sy+25;for(const ln of wrapCanvasText(x,summary||"特記事項なし",1060).slice(0,4)){x.fillText(ln,90,ty);ty+=23}
  sy+=128;x.fillStyle="#173a63";x.font="800 17px -apple-system,sans-serif";x.fillText("管理会社コメント",65,sy);sy+=12;x.fillStyle="#f7f9fc";x.fillRect(65,sy,1110,95);x.fillStyle="#344054";x.font="500 16px -apple-system,sans-serif";ty=sy+25;for(const ln of wrapCanvasText(x,owner||"今月の巡回結果は上記のとおりです。",1060).slice(0,3)){x.fillText(ln,90,ty);ty+=23}
- x.fillStyle="#98a2b3";x.font="500 10px -apple-system,sans-serif";x.fillText("月次判定：当月に確認した最も注意度の高い判定を表示（× ＞ △ ＞ ○ ＞ －）",65,1695);
+ x.fillStyle="#98a2b3";x.font="500 14px -apple-system,sans-serif";x.fillText("月次判定：当月に確認した最も注意度の高い判定を表示（× ＞ △ ＞ ○ ＞ －）",65,1695);
  pages.push(c);
  // PAGE 2+: △/×は「写真単位」ではなく「指摘項目単位」でまとめて掲載。
  // 同一項目で複数写真を撮影した場合は、1つの報告ブロック内に写真を並べる。
@@ -1100,7 +1100,7 @@ async function buildMonthlyCanvases(m){
      header(ctx,"月次管理報告書　指摘・経過観察事項",`${m.p?.name||""}　${m.ym.replace("-","年")}月`);
      ctx.fillStyle=statusBg(v.status);ctx.fillRect(bx,by,bw,58);ctx.fillStyle=statusColor(v.status);ctx.font="800 24px -apple-system,sans-serif";
      ctx.fillText(`${v.status} ${v.key}${chunks.length>1?`（${part+1}/${chunks.length}）`:""}`,bx+15,by+38);
-     ctx.fillStyle="#667085";ctx.font="500 15px -apple-system,sans-serif";ctx.textAlign="right";ctx.fillText(`確認日 ${v.dates.map(d=>d.slice(5).replace("-","/")).join("・")}`,bx+bw-15,by+38);ctx.textAlign="left";
+     ctx.fillStyle="#667085";ctx.font="500 17px -apple-system,sans-serif";ctx.textAlign="right";ctx.fillText(`確認日 ${v.dates.map(d=>d.slice(5).replace("-","/")).join("・")}`,bx+bw-15,by+38);ctx.textAlign="left";
      if(batch.length){
        let gap=18,photoTop=by+78,photoAreaH=820,cols=batch.length===1?1:2,rows=Math.ceil(batch.length/cols),cellW=(bw-gap*(cols-1))/cols,cellH=(photoAreaH-gap*(rows-1))/rows;
        for(let i=0;i<batch.length;i++){let row=Math.floor(i/cols),col=i%cols,px=bx+col*(cellW+gap),py=photoTop+row*(cellH+gap);await drawPhoto(ctx,batch[i].src,px,py,cellW,cellH-26);ctx.fillStyle="#667085";ctx.font="500 13px -apple-system,sans-serif";ctx.fillText(`写真 ${part*4+i+1}　${batch[i].date}`,px,py+cellH-7)}
@@ -1277,7 +1277,7 @@ async function previewPDF(){
  }
 }
 
-async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.12.3");await updateDraftInfo();}
+async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.12.4");await updateDraftInfo();}
 async function resumeDraft(id){try{if(draft&&String(draft.id)!==String(id))await putDraftRecord(draft);let d=await getDraftRecord(id);if(!d)return;draft=d;current=0;sections("inspection");renderCategory()}catch(e){alert("保存中の巡回データを読み込めませんでした。もう一度お試しください。");}}
 function saveDraft(){
  if(!draft)return;
@@ -1299,7 +1299,7 @@ async function refreshDraftInfo(){await migrateLegacyDraftToIDB();await cleanupC
 window.addEventListener("pagehide",()=>{if(draft)putDraftRecord(draft).catch(()=>{})});
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 refreshDraftInfo();syncInspectorInput();let _dateEl=document.getElementById("homeInspectionDate");if(_dateEl&&!_dateEl.value)_dateEl.value=todayISODate();
-if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1123",{updateViaCache:"none"}).catch(()=>{}));}
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1124",{updateViaCache:"none"}).catch(()=>{}));}
 </script>
 
 <script>
