@@ -70,7 +70,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="brand">PROPERTY INSPECTION · V1.12.1</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.12.1</div></header>
+<header class="top"><div class="brand">PROPERTY INSPECTION · V1.12.3</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.12.3</div></header>
 <main>
 <section id="home">
  <div class="home-dashboard">
@@ -215,7 +215,7 @@ async function exportInspectionBackup(){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.12.1");
+ title("巡回点検","iPhone・iPad 現場点検 V1.12.3");
  updateHome();
  refreshDraftInfo();
  syncInspectorInput();
@@ -692,7 +692,7 @@ function snapshotDraft(){
  };
 }
 async function saveCurrentInspection(){
- // V1.12.1: 写真本体は PHOTO_STORE に1枚ずつ保存し、履歴には写真IDだけを保持する。
+ // V1.12.3: 写真本体は PHOTO_STORE に1枚ずつ保存し、履歴には写真IDだけを保持する。
  draft.completedAt=new Date().toISOString();let snap=snapshotDraft();snap.date=normalizeHistoryDate(snap.date);
  await migrateLegacyHistories();let db=await openJunkaiDB();
  // 先に写真を個別保存。巨大な巡回オブジェクトを複製しない。
@@ -773,8 +773,28 @@ async function renderSavedHistory(){
   if(pid)hs=hs.filter(h=>String(h.property?.id)===String(pid));
   hs.sort((a,b)=>normalizeHistoryDate(b.date).localeCompare(normalizeHistoryDate(a.date)));
   if(!hs.length){el.innerHTML='<div class="card">保存済みの巡回履歴はありません。</div>';return}
-  el.innerHTML=hs.map(h=>`<div class="card"><div class="property"><div><b>${escapeHtml(h.property?.name||"")}</b><small>${escapeHtml(historyDateTime(h))}${h.inspector?`　点検者：${escapeHtml(h.inspector)}`:""}</small></div><span class="pill">保存済み</span></div><div class="property-actions"><button class="smallbtn delete" onclick="removeSavedHistory('${h.id}')">削除</button></div></div>`).join("");
+  el.innerHTML=hs.map(h=>`<div class="card"><div class="property"><div><b>${escapeHtml(h.property?.name||"")}</b><small>${escapeHtml(historyDateTime(h))}${h.inspector?`　点検者：${escapeHtml(h.inspector)}`:""}</small></div><span class="pill">保存済み</span></div><div class="property-actions"><button class="smallbtn" onclick="createWeeklyPdfFromHistory('${h.id}',this)">週次報告書PDFを作成</button><button class="smallbtn delete" onclick="removeSavedHistory('${h.id}')">削除</button></div></div>`).join("");
  }catch(e){el.innerHTML='<div class="card">履歴を読み込めませんでした。</div>'}
+}
+
+async function createWeeklyPdfFromHistory(id,btn){
+ let oldText=btn?.textContent||"";
+ try{
+  if(btn){btn.disabled=true;btn.textContent="PDFを作成中…"}
+  let db=await openJunkaiDB();
+  let raw=await new Promise((resolve,reject)=>{let r=db.transaction(HISTORY_STORE,"readonly").objectStore(HISTORY_STORE).get(String(id));r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error)});
+  if(!raw){alert("保存済み巡回履歴が見つかりませんでした。");return}
+  let h=await hydratePhotos(raw);
+  let missing=photoObjects(raw).filter(p=>p.photoId).length-photoObjects(h).filter(p=>p.data||p.src).length;
+  if(missing>0){alert(`この巡回の写真データが${missing}枚削除済みのため、写真付き週次報告書を再作成できません。`);return}
+  let previousDraft=draft;draft=h;
+  try{
+   let blob=makeImagePDF(await buildReportCanvases());
+   let name=`${String(h.date||"").replace(/\//g,"-")}_${safeFileName(h.property?.name||"")}_巡回点検報告書.pdf`;
+   await shareOnIOSOrDownload(blob,name,"巡回点検報告書");
+  }finally{draft=previousDraft}
+ }catch(e){console.error(e);alert("週次報告書PDFを作成できませんでした。\n"+(e?.message||String(e)))}
+ finally{if(btn){btn.disabled=false;btn.textContent=oldText||"週次報告書PDFを作成"}}
 }
 async function removeSavedHistory(id){
  if(!confirm("この保存済み巡回履歴を削除しますか？"))return;
@@ -1061,9 +1081,34 @@ async function buildMonthlyCanvases(m){
  sy+=128;x.fillStyle="#173a63";x.font="800 17px -apple-system,sans-serif";x.fillText("管理会社コメント",65,sy);sy+=12;x.fillStyle="#f7f9fc";x.fillRect(65,sy,1110,95);x.fillStyle="#344054";x.font="500 16px -apple-system,sans-serif";ty=sy+25;for(const ln of wrapCanvasText(x,owner||"今月の巡回結果は上記のとおりです。",1060).slice(0,3)){x.fillText(ln,90,ty);ty+=23}
  x.fillStyle="#98a2b3";x.font="500 10px -apple-system,sans-serif";x.fillText("月次判定：当月に確認した最も注意度の高い判定を表示（× ＞ △ ＞ ○ ＞ －）",65,1695);
  pages.push(c);
- // PAGE 2+: only when there are △/× issue photos. Two issues per page.
- let issues=[];itemRows.filter(r=>r.status==="×"||r.status==="△").sort((a,b)=>(rank[b.status]-rank[a.status])).forEach(r=>{let key=r.cat+" / "+r.item;let records=r.seen.filter(v=>v.status==="×"||v.status==="△");records.forEach(rec=>{let photos=rec.photos||[];if(photos.length){photos.forEach(ph=>issues.push({key,status:rec.status,date:rec.date,src:ph.data||ph.src||ph.url||ph,inspection:rec.comment||"",owner:ownerMap[key]||""}))}else{issues.push({key,status:rec.status,date:rec.date,src:null,inspection:rec.comment||"",owner:ownerMap[key]||""})}})});
- for(let n=0;n<issues.length;n+=2){let [pc,ctx]=make();header(ctx,"月次管理報告書　指摘・経過観察事項",`${m.p?.name||""}　${m.ym.replace("-","年")}月`);let batch=issues.slice(n,n+2);for(let k=0;k<batch.length;k++){let v=batch[k],bx=65,by=155+k*785,bw=1110;ctx.fillStyle=statusBg(v.status);ctx.fillRect(bx,by,bw,52);ctx.fillStyle=statusColor(v.status);ctx.font="800 22px -apple-system,sans-serif";ctx.fillText(`${v.status} ${v.key}`,bx+15,by+34);ctx.fillStyle="#667085";ctx.font="500 16px -apple-system,sans-serif";ctx.textAlign="right";ctx.fillText(v.date,bx+bw-15,by+34);ctx.textAlign="left";await drawPhoto(ctx,v.src,bx,by+68,520,420);let tx=620,ty=by+96;ctx.fillStyle="#173a63";ctx.font="800 21px -apple-system,sans-serif";ctx.fillText("オーナー様向けコメント",tx,ty);ty+=38;ctx.fillStyle="#475467";ctx.font="500 19px -apple-system,sans-serif";for(const ln of wrapCanvasText(ctx,v.owner||v.inspection||"記載なし",530).slice(0,12)){ctx.fillText(ln,tx,ty);ty+=28}}pages.push(pc)}
+ // PAGE 2+: △/×は「写真単位」ではなく「指摘項目単位」でまとめて掲載。
+ // 同一項目で複数写真を撮影した場合は、1つの報告ブロック内に写真を並べる。
+ let issueGroups=[];
+ itemRows.filter(r=>r.status==="×"||r.status==="△").sort((a,b)=>(rank[b.status]-rank[a.status])).forEach(r=>{
+   let key=r.cat+" / "+r.item,records=r.seen.filter(v=>v.status==="×"||v.status==="△");
+   let photos=[],dates=[],comments=[],worst="－";
+   records.forEach(rec=>{
+     dates.push(rec.date);if((rank[rec.status]||0)>(rank[worst]||0))worst=rec.status;if(rec.comment)comments.push(rec.comment);
+     (rec.photos||[]).forEach(ph=>photos.push({src:ph.data||ph.src||ph.url||ph,date:rec.date}));
+   });
+   issueGroups.push({key,status:worst,dates:[...new Set(dates)].sort(),photos,inspection:[...new Set(comments)].join("／"),owner:ownerMap[key]||""});
+ });
+ for(const v of issueGroups){
+   const chunks=v.photos.length?Array.from({length:Math.ceil(v.photos.length/4)},(_,i)=>v.photos.slice(i*4,i*4+4)):[[]];
+   for(let part=0;part<chunks.length;part++){
+     let [pc,ctx]=make(),bx=65,by=155,bw=1110,batch=chunks[part];
+     header(ctx,"月次管理報告書　指摘・経過観察事項",`${m.p?.name||""}　${m.ym.replace("-","年")}月`);
+     ctx.fillStyle=statusBg(v.status);ctx.fillRect(bx,by,bw,58);ctx.fillStyle=statusColor(v.status);ctx.font="800 24px -apple-system,sans-serif";
+     ctx.fillText(`${v.status} ${v.key}${chunks.length>1?`（${part+1}/${chunks.length}）`:""}`,bx+15,by+38);
+     ctx.fillStyle="#667085";ctx.font="500 15px -apple-system,sans-serif";ctx.textAlign="right";ctx.fillText(`確認日 ${v.dates.map(d=>d.slice(5).replace("-","/")).join("・")}`,bx+bw-15,by+38);ctx.textAlign="left";
+     if(batch.length){
+       let gap=18,photoTop=by+78,photoAreaH=820,cols=batch.length===1?1:2,rows=Math.ceil(batch.length/cols),cellW=(bw-gap*(cols-1))/cols,cellH=(photoAreaH-gap*(rows-1))/rows;
+       for(let i=0;i<batch.length;i++){let row=Math.floor(i/cols),col=i%cols,px=bx+col*(cellW+gap),py=photoTop+row*(cellH+gap);await drawPhoto(ctx,batch[i].src,px,py,cellW,cellH-26);ctx.fillStyle="#667085";ctx.font="500 13px -apple-system,sans-serif";ctx.fillText(`写真 ${part*4+i+1}　${batch[i].date}`,px,py+cellH-7)}
+     }else{ctx.fillStyle="#f7f9fc";ctx.fillRect(bx,by+78,bw,360);ctx.fillStyle="#98a2b3";ctx.font="600 18px -apple-system,sans-serif";ctx.textAlign="center";ctx.fillText("指摘写真なし",bx+bw/2,by+270);ctx.textAlign="left"}
+     if(part===chunks.length-1){let ty=by+950;ctx.fillStyle="#173a63";ctx.font="800 21px -apple-system,sans-serif";ctx.fillText("オーナー様向けコメント",bx,ty);ty+=38;ctx.fillStyle="#475467";ctx.font="500 19px -apple-system,sans-serif";for(const ln of wrapCanvasText(ctx,v.owner||v.inspection||"記載なし",bw).slice(0,10)){ctx.fillText(ln,bx,ty);ty+=28}}
+     pages.push(pc);
+   }
+ }
  return pages;
 }
 async function buildReportCanvases(){
@@ -1232,7 +1277,7 @@ async function previewPDF(){
  }
 }
 
-async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.12.1");await updateDraftInfo();}
+async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.12.3");await updateDraftInfo();}
 async function resumeDraft(id){try{if(draft&&String(draft.id)!==String(id))await putDraftRecord(draft);let d=await getDraftRecord(id);if(!d)return;draft=d;current=0;sections("inspection");renderCategory()}catch(e){alert("保存中の巡回データを読み込めませんでした。もう一度お試しください。");}}
 function saveDraft(){
  if(!draft)return;
@@ -1254,7 +1299,7 @@ async function refreshDraftInfo(){await migrateLegacyDraftToIDB();await cleanupC
 window.addEventListener("pagehide",()=>{if(draft)putDraftRecord(draft).catch(()=>{})});
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 refreshDraftInfo();syncInspectorInput();let _dateEl=document.getElementById("homeInspectionDate");if(_dateEl&&!_dateEl.value)_dateEl.value=todayISODate();
-if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1120",{updateViaCache:"none"}).catch(()=>{}));}
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1123",{updateViaCache:"none"}).catch(()=>{}));}
 </script>
 
 <script>
