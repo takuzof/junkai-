@@ -70,7 +70,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="brand">PROPERTY INSPECTION · V1.10.7</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.10.7</div></header>
+<header class="top"><div class="brand">PROPERTY INSPECTION · V1.11.0</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.11.0</div></header>
 <main>
 <section id="home">
  <div class="home-dashboard">
@@ -215,7 +215,7 @@ async function exportInspectionBackup(){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.10.7");
+ title("巡回点検","iPhone・iPad 現場点検 V1.11.0");
  updateHome();
  refreshDraftInfo();
  syncInspectorInput();
@@ -559,16 +559,35 @@ function drawCoverHeader(ctx,pageNo,total){
 }
 
 const HISTORY_KEY="inspection_history_v16";
-const DB_NAME="junkai_inspection_db", DB_VERSION=1, HISTORY_STORE="histories";
+const DB_NAME="junkai_inspection_db", DB_VERSION=2, HISTORY_STORE="histories", DRAFT_STORE="drafts";
 let _dbPromise=null;
 function openJunkaiDB(){
  if(_dbPromise)return _dbPromise;
  _dbPromise=new Promise((resolve,reject)=>{
   let req=indexedDB.open(DB_NAME,DB_VERSION);
-  req.onupgradeneeded=()=>{let db=req.result;if(!db.objectStoreNames.contains(HISTORY_STORE)){let st=db.createObjectStore(HISTORY_STORE,{keyPath:"id"});st.createIndex("propertyId","property.id",{unique:false});st.createIndex("date","date",{unique:false})}};
+  req.onupgradeneeded=()=>{let db=req.result;if(!db.objectStoreNames.contains(HISTORY_STORE)){let st=db.createObjectStore(HISTORY_STORE,{keyPath:"id"});st.createIndex("propertyId","property.id",{unique:false});st.createIndex("date","date",{unique:false})}if(!db.objectStoreNames.contains(DRAFT_STORE))db.createObjectStore(DRAFT_STORE,{keyPath:"key"})};
   req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
  });
  return _dbPromise;
+}
+const DRAFT_META_KEY="inspection_draft_meta";
+let _draftSaveTimer=null;
+async function putDraftRecord(d){
+ if(!d)return; let db=await openJunkaiDB();
+ await new Promise((resolve,reject)=>{let tx=db.transaction(DRAFT_STORE,"readwrite");tx.objectStore(DRAFT_STORE).put({key:"current",draft:d,updatedAt:new Date().toISOString()});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+ localStorage.setItem(DRAFT_META_KEY,JSON.stringify({id:d.id,propertyName:d.property?.name||"",propertyId:d.property?.id||"",date:d.date||"",updatedAt:new Date().toISOString()}));
+}
+async function getDraftRecord(){
+ let db=await openJunkaiDB(); return await new Promise((resolve,reject)=>{let r=db.transaction(DRAFT_STORE,"readonly").objectStore(DRAFT_STORE).get("current");r.onsuccess=()=>resolve(r.result?.draft||null);r.onerror=()=>reject(r.error)});
+}
+async function clearDraftStorage(){
+ if(_draftSaveTimer){clearTimeout(_draftSaveTimer);_draftSaveTimer=null;}
+ try{let db=await openJunkaiDB();await new Promise((resolve,reject)=>{let tx=db.transaction(DRAFT_STORE,"readwrite");tx.objectStore(DRAFT_STORE).delete("current");tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}catch(_){}
+ localStorage.removeItem(DRAFT_META_KEY);localStorage.removeItem("inspection_draft");
+}
+async function migrateLegacyDraftToIDB(){
+ let raw=localStorage.getItem("inspection_draft");if(!raw)return;
+ try{let d=JSON.parse(raw);if(d){await putDraftRecord(d);localStorage.removeItem("inspection_draft")}}catch(_){localStorage.removeItem("inspection_draft")}
 }
 function normalizeHistoryDate(v){
  let m=String(v||"").match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
@@ -624,7 +643,7 @@ function snapshotDraft(){
  });
  return {
   id:"h_"+Date.now(), property:{...draft.property}, date:draft.date, inspector:draft.inspector||getInspectorName()||"",
-  storageMeta:{photoCount,photoBytes,recordedAt:new Date().toISOString(),version:"1.10.7"},
+  storageMeta:{photoCount,photoBytes,recordedAt:new Date().toISOString(),version:"1.11.0"},
   overall:draft.overall||"", startedAt:draft.startedAt||"", completedAt:new Date().toISOString(), savedAt:new Date().toISOString(),
   categories:draft.categories.map(c=>({name:c.name,comment:c.comment||"",notApplicable:!!c.notApplicable,representativePhotos:(c.representativePhotos||[]).map(ph=>({data:ph.data||ph.src||ph,monthlyCandidate:true})),items:c.items.map(i=>({
     name:i.name,status:i.status||"",comment:i.comment||"",photos:(i.photos||[]).map(p=>({data:p.data,comment:p.comment||"",monthlyCandidate:!!p.monthlyCandidate}))
@@ -639,7 +658,7 @@ async function saveInspectionDataOnly(){
  if(!draft)return;
  if(!(await validateAndSaveInspection()))return;
  alert("点検データを保存しました。\n巡回は完了として保存済み履歴へ移動しました。");
- localStorage.removeItem("inspection_draft");draft=null;returnToSummary=false;
+ await clearDraftStorage();draft=null;returnToSummary=false;
  goHome();
 }
 async function validateAndSaveInspection(){
@@ -782,8 +801,8 @@ async function deleteMonthData(ym){
 async function deleteAllInspectionTestData(){
  if(!confirm("保存済み巡回履歴・写真・作業中の巡回データをすべて削除します。\n物件マスターは残ります。\n\nテスト中のデータを消してよろしいですか？"))return;
  try{
-  let db=await openJunkaiDB();await new Promise((resolve,reject)=>{let tx=db.transaction(HISTORY_STORE,"readwrite");tx.objectStore(HISTORY_STORE).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
-  localStorage.removeItem("inspection_draft");localStorage.removeItem(HISTORY_KEY);draft=null;updateDraftInfo();await renderStorageManager();alert("巡回テストデータを削除しました。物件マスターは残っています。");
+  let db=await openJunkaiDB();await new Promise((resolve,reject)=>{let tx=db.transaction([HISTORY_STORE,DRAFT_STORE],"readwrite");tx.objectStore(HISTORY_STORE).clear();tx.objectStore(DRAFT_STORE).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+  localStorage.removeItem("inspection_draft");localStorage.removeItem(DRAFT_META_KEY);localStorage.removeItem(HISTORY_KEY);draft=null;updateDraftInfo();await renderStorageManager();alert("巡回テストデータを削除しました。物件マスターは残っています。");
  }catch(e){alert("削除できませんでした。もう一度お試しください。");}
 }
 function escapeHtml(t){return String(t||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
@@ -1151,7 +1170,7 @@ async function createAndSharePDF(){
  try{
    let blob=await createPDFBlob(),name=`${draft.date.replace(/\//g,"-")}_${safeFileName(draft.property.name)}_巡回点検報告書.pdf`;
    const result=await shareOnIOSOrDownload(blob,name,"巡回点検報告書");
-   if(result!=="cancelled"){localStorage.removeItem("inspection_draft");draft=null;returnToSummary=false;updateDraftInfo();}
+   if(result!=="cancelled"){await clearDraftStorage();draft=null;returnToSummary=false;updateDraftInfo();}
  }catch(e){if(e&&e.name!=="AbortError")alert("PDFの作成または共有に失敗しました。写真枚数を減らして再度お試しください。")}
 }
 async function previewPDF(){
@@ -1164,18 +1183,24 @@ async function previewPDF(){
  }
 }
 
-function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;localStorage.removeItem("inspection_draft");draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.10.7");updateDraftInfo();}
-function resumeDraft(){let d=JSON.parse(localStorage.getItem("inspection_draft")||"null");if(!d)return;draft=d;current=0;sections("inspection");renderCategory();}
-function saveDraft(){try{localStorage.setItem("inspection_draft",JSON.stringify(draft));updateDraftInfo()}catch(e){alert("iPhone内の保存容量が不足しました。不要な写真を削除してください。")}}
-async function cleanupCompletedDraft(){
- let raw=localStorage.getItem("inspection_draft");if(!raw)return;let d;try{d=JSON.parse(raw)}catch(_){localStorage.removeItem("inspection_draft");return}
- try{let hs=await histories();let done=hs.some(h=>String(h.property?.id)===String(d.property?.id)&&normalizeHistoryDate(h.date)===normalizeHistoryDate(d.date));if(done){localStorage.removeItem("inspection_draft");if(draft&&String(draft.id)===String(d.id))draft=null}}catch(_){}
+async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;await clearDraftStorage();draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.11.0");updateDraftInfo();}
+async function resumeDraft(){try{let d=await getDraftRecord();if(!d)return;draft=d;current=0;sections("inspection");renderCategory()}catch(e){alert("保存中の巡回データを読み込めませんでした。もう一度お試しください。");}}
+function saveDraft(){
+ if(!draft)return;
+ localStorage.setItem(DRAFT_META_KEY,JSON.stringify({id:draft.id,propertyName:draft.property?.name||"",propertyId:draft.property?.id||"",date:draft.date||"",updatedAt:new Date().toISOString()}));
+ updateDraftInfo();
+ if(_draftSaveTimer)clearTimeout(_draftSaveTimer);
+ _draftSaveTimer=setTimeout(async()=>{_draftSaveTimer=null;try{await putDraftRecord(draft)}catch(e){alert("巡回データを保存できませんでした。端末の空き容量をご確認ください。")}},350);
 }
-function updateDraftInfo(){let d=null;try{d=JSON.parse(localStorage.getItem("inspection_draft")||"null")}catch(_){localStorage.removeItem("inspection_draft")}draftInfo.textContent=d?`${d.property.name} / ${d.date} の巡回データがあります`:"現在、作業中の巡回はありません";let b=document.getElementById("resumeBtn");if(b)b.style.display=d?"block":"none"}
-async function refreshDraftInfo(){await cleanupCompletedDraft();updateDraftInfo()}
+async function cleanupCompletedDraft(){
+ try{let d=await getDraftRecord();if(!d){localStorage.removeItem(DRAFT_META_KEY);return}let hs=await histories();let done=hs.some(h=>String(h.property?.id)===String(d.property?.id)&&normalizeHistoryDate(h.date)===normalizeHistoryDate(d.date));if(done){await clearDraftStorage();if(draft&&String(draft.id)===String(d.id))draft=null}}catch(_){}
+}
+function updateDraftInfo(){let m=null;try{m=JSON.parse(localStorage.getItem(DRAFT_META_KEY)||"null")}catch(_){localStorage.removeItem(DRAFT_META_KEY)}draftInfo.textContent=m?`${m.propertyName} / ${m.date} の巡回データがあります`:"現在、作業中の巡回はありません";let b=document.getElementById("resumeBtn");if(b)b.style.display=m?"block":"none"}
+async function refreshDraftInfo(){await migrateLegacyDraftToIDB();await cleanupCompletedDraft();updateDraftInfo()}
+window.addEventListener("pagehide",()=>{if(draft)putDraftRecord(draft).catch(()=>{})});
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 refreshDraftInfo();syncInspectorInput();
-if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1107",{updateViaCache:"none"}).catch(()=>{}));}
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1110",{updateViaCache:"none"}).catch(()=>{}));}
 </script>
 
 <script>
