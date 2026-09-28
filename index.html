@@ -70,7 +70,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="brand">PROPERTY INSPECTION · V1.12.6</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.12.6</div></header>
+<header class="top"><div class="brand">PROPERTY INSPECTION · V1.12.7</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.12.7</div></header>
 <main>
 <section id="home">
  <div class="home-dashboard">
@@ -215,7 +215,7 @@ async function exportInspectionBackup(){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.12.6");
+ title("巡回点検","iPhone・iPad 現場点検 V1.12.7");
  updateHome();
  refreshDraftInfo();
  syncInspectorInput();
@@ -659,7 +659,7 @@ async function deleteHistoryRecord(id){
  let db=await openJunkaiDB();let raw=await new Promise((resolve,reject)=>{let r=db.transaction(HISTORY_STORE,"readonly").objectStore(HISTORY_STORE).get(id);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error)});if(raw)await deletePhotosForObject(raw);return await new Promise((resolve,reject)=>{let tx=db.transaction(HISTORY_STORE,"readwrite");tx.objectStore(HISTORY_STORE).delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
 }
 function itemComment(cat,item){
-  // V1.12.6: 週次巡回で入力した「オーナー様向けコメント」を月次へ最優先で引き継ぐ。
+  // V1.12.7: 週次巡回で入力した「オーナー様向けコメント」を月次へ最優先で引き継ぐ。
   // 写真メモ・カテゴリーコメントは旧データ向けのフォールバックとしてのみ使用する。
   return (item?.comment||"").trim() || (item?.photos||[]).map(p=>(p.comment||"").trim()).find(Boolean) || (cat?.comment||"").trim() || "";
 }
@@ -694,7 +694,7 @@ function snapshotDraft(){
  };
 }
 async function saveCurrentInspection(){
- // V1.12.6: 写真本体は PHOTO_STORE に1枚ずつ保存し、履歴には写真IDだけを保持する。
+ // V1.12.7: 写真本体は PHOTO_STORE に1枚ずつ保存し、履歴には写真IDだけを保持する。
  draft.completedAt=new Date().toISOString();let snap=snapshotDraft();snap.date=normalizeHistoryDate(snap.date);
  await migrateLegacyHistories();let db=await openJunkaiDB();
  // 先に写真を個別保存。巨大な巡回オブジェクトを複製しない。
@@ -775,8 +775,51 @@ async function renderSavedHistory(){
   if(pid)hs=hs.filter(h=>String(h.property?.id)===String(pid));
   hs.sort((a,b)=>normalizeHistoryDate(b.date).localeCompare(normalizeHistoryDate(a.date)));
   if(!hs.length){el.innerHTML='<div class="card">保存済みの巡回履歴はありません。</div>';return}
-  el.innerHTML=hs.map(h=>`<div class="card"><div class="property"><div><b>${escapeHtml(h.property?.name||"")}</b><small>${escapeHtml(historyDateTime(h))}${h.inspector?`　点検者：${escapeHtml(h.inspector)}`:""}</small></div><span class="pill">保存済み</span></div><div class="property-actions"><button class="smallbtn" onclick="createWeeklyPdfFromHistory('${h.id}',this)">週次報告書PDFを作成</button><button class="smallbtn delete" onclick="removeSavedHistory('${h.id}')">削除</button></div></div>`).join("");
+  el.innerHTML=hs.map(h=>`<div class="card"><div class="property"><div><b>${escapeHtml(h.property?.name||"")}</b><small>${escapeHtml(historyDateTime(h))}${h.inspector?`　点検者：${escapeHtml(h.inspector)}`:""}</small></div><span class="pill">保存済み</span></div><div class="property-actions"><button class="smallbtn" onclick="viewHistoryPhotos('${h.id}')">撮影写真を見る</button><button class="smallbtn" onclick="createWeeklyPdfFromHistory('${h.id}',this)">週次報告書PDFを作成</button><button class="smallbtn delete" onclick="removeSavedHistory('${h.id}')">削除</button></div></div>`).join("");
  }catch(e){el.innerHTML='<div class="card">履歴を読み込めませんでした。</div>'}
+}
+
+
+async function getHydratedHistory(id){
+ let db=await openJunkaiDB();
+ let raw=await new Promise((resolve,reject)=>{let r=db.transaction(HISTORY_STORE,"readonly").objectStore(HISTORY_STORE).get(String(id));r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error)});
+ if(!raw)return null;
+ return await hydratePhotos(raw);
+}
+function historyPhotoEntries(h){
+ let out=[];
+ (h?.categories||[]).forEach(c=>{
+  (c.representativePhotos||[]).forEach((p,i)=>out.push({p,category:c.name,item:"代表写真",label:`${c.name}・代表写真 ${i+1}`}));
+  (c.items||[]).forEach(it=>(it.photos||[]).forEach((p,i)=>out.push({p,category:c.name,item:it.name,label:`${c.name}・${it.name} ${i+1}`})));
+ });
+ return out;
+}
+async function viewHistoryPhotos(id){
+ try{
+  let h=await getHydratedHistory(id);if(!h){alert("保存済み巡回履歴が見つかりませんでした。");return}
+  let photos=historyPhotoEntries(h).filter(x=>x.p?.data||x.p?.src);
+  let missing=historyPhotoEntries(h).length-photos.length;
+  let wrap=document.createElement("div");wrap.id="historyPhotoViewer";wrap.style.cssText="position:fixed;inset:0;z-index:9999;background:#f5f7fa;overflow:auto;padding:14px";
+  wrap.innerHTML=`<div style="max-width:760px;margin:auto"><div style="position:sticky;top:0;background:#f5f7fa;padding:4px 0 10px;z-index:2"><button class="secondary" style="width:auto;padding:9px 14px" onclick="document.getElementById('historyPhotoViewer')?.remove()">← 戻る</button><h2 style="margin:12px 0 3px">${escapeHtml(h.property?.name||"")}　撮影写真</h2><div class="sub">${escapeHtml(historyDateTime(h))}　${photos.length}枚${missing?`（写真データ削除済み ${missing}枚）`:""}</div><div class="notice" style="text-align:left;margin-top:8px">写真をタップすると大きく表示できます。必要な写真だけ「共有・保存」からiPhoneの写真アプリへ保存できます。</div></div><div class="photo-grid">${photos.map((x,i)=>`<div class="photo-card"><img src="${x.p.data||x.p.src}" style="height:150px;cursor:pointer" onclick="openHistoryPhoto('${id}',${i})"><b style="display:block;margin-top:7px;font-size:12px">${escapeHtml(x.label)}</b><button class="smallbtn" style="margin-top:7px;width:100%" onclick="shareHistoryPhoto('${id}',${i},this)">共有・保存</button></div>`).join("")}</div></div>`;
+  document.body.appendChild(wrap);
+ }catch(e){console.error(e);alert("写真を読み込めませんでした。\n"+(e?.message||String(e)))}
+}
+async function openHistoryPhoto(id,index){
+ let h=await getHydratedHistory(id),x=historyPhotoEntries(h||{}).filter(v=>v.p?.data||v.p?.src)[index];if(!x)return;
+ let ov=document.createElement("div");ov.id="historyPhotoLarge";ov.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px";
+ ov.innerHTML=`<img src="${x.p.data||x.p.src}" style="max-width:100%;max-height:78vh;object-fit:contain"><div style="color:white;margin:10px 0;font-weight:800">${escapeHtml(x.label)}</div><div style="display:flex;gap:8px"><button class="secondary" style="width:auto" onclick="document.getElementById('historyPhotoLarge')?.remove()">閉じる</button><button class="primary" style="width:auto" onclick="shareHistoryPhoto('${id}',${index},this)">共有・保存</button></div>`;
+ document.body.appendChild(ov);
+}
+function dataUrlToBlob(dataUrl){let a=dataUrl.split(','),mime=(a[0].match(/:(.*?);/)||[])[1]||'image/jpeg',bin=atob(a[1]),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type:mime})}
+async function shareHistoryPhoto(id,index,btn){
+ let old=btn?.textContent||"";try{
+  if(btn){btn.disabled=true;btn.textContent="準備中…"}
+  let h=await getHydratedHistory(id),x=historyPhotoEntries(h||{}).filter(v=>v.p?.data||v.p?.src)[index];if(!x)throw new Error("写真データがありません");
+  let data=x.p.data||x.p.src,blob=dataUrlToBlob(data),name=`${String(h.date||"").replace(/\//g,"-")}_${safeFileName(h.property?.name||"")}_${safeFileName(x.category)}_${safeFileName(x.item)}.jpg`,file=new File([blob],name,{type:blob.type||"image/jpeg"});
+  if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){await navigator.share({files:[file],title:x.label});return}
+  let url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+ }catch(e){if(e?.name!=="AbortError"){console.error(e);alert("写真を共有・保存できませんでした。\n"+(e?.message||String(e)))}}
+ finally{if(btn){btn.disabled=false;btn.textContent=old||"共有・保存"}}
 }
 
 async function createWeeklyPdfFromHistory(id,btn){
@@ -1280,7 +1323,7 @@ async function previewPDF(){
  }
 }
 
-async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.12.6");await updateDraftInfo();}
+async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.12.7");await updateDraftInfo();}
 async function resumeDraft(id){try{if(draft&&String(draft.id)!==String(id))await putDraftRecord(draft);let d=await getDraftRecord(id);if(!d)return;draft=d;current=0;sections("inspection");renderCategory()}catch(e){alert("保存中の巡回データを読み込めませんでした。もう一度お試しください。");}}
 function saveDraft(){
  if(!draft)return;
@@ -1302,7 +1345,7 @@ async function refreshDraftInfo(){await migrateLegacyDraftToIDB();await cleanupC
 window.addEventListener("pagehide",()=>{if(draft)putDraftRecord(draft).catch(()=>{})});
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 refreshDraftInfo();syncInspectorInput();let _dateEl=document.getElementById("homeInspectionDate");if(_dateEl&&!_dateEl.value)_dateEl.value=todayISODate();
-if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1126",{updateViaCache:"none"}).catch(()=>{}));}
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1127",{updateViaCache:"none"}).catch(()=>{}));}
 </script>
 
 <script>
