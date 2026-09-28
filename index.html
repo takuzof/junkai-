@@ -70,7 +70,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="brand">PROPERTY INSPECTION · V1.11.3</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.11.3</div></header>
+<header class="top"><div class="brand">PROPERTY INSPECTION · V1.12.0</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.12.0</div></header>
 <main>
 <section id="home">
  <div class="home-dashboard">
@@ -215,7 +215,7 @@ async function exportInspectionBackup(){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.11.3");
+ title("巡回点検","iPhone・iPad 現場点検 V1.12.0");
  updateHome();
  refreshDraftInfo();
  syncInspectorInput();
@@ -335,7 +335,7 @@ function validateCurrentItemRequirements(){
  return true;
 }
 function chooseRepresentativePhoto(){photoTargetItem="representative";photoInput.click()}
-function deleteRepresentativePhoto(j){let d=draft.categories[current];d.representativePhotos=d.representativePhotos||[];d.representativePhotos.splice(j,1);saveDraft();renderCategory()}
+async function deleteRepresentativePhoto(j){let d=draft.categories[current];d.representativePhotos=d.representativePhotos||[];let old=d.representativePhotos[j];d.representativePhotos.splice(j,1);if(old?.photoId)await deletePhotoData(old.photoId);saveDraft();renderCategory()}
 function choosePhotos(i){
  photoTargetItem=i;
  let input=document.getElementById("photoInput");
@@ -397,10 +397,10 @@ function photoComment(i,j,v){
  p.comment=v;
  saveDraft();
 }
-function deletePhoto(i,j){
+async function deletePhoto(i,j){
  let item=draft.categories[current].items[i];
  if(!item || !item.photos) return;
- item.photos.splice(j,1);
+ let old=item.photos[j];item.photos.splice(j,1);if(old?.photoId)await deletePhotoData(old.photoId);
 
  // ×項目の最後の写真を削除したら、判定も未選択へ戻す
  if(item.status==="×" && item.photos.length===0){
@@ -563,13 +563,13 @@ function drawCoverHeader(ctx,pageNo,total){
 }
 
 const HISTORY_KEY="inspection_history_v16";
-const DB_NAME="junkai_inspection_db", DB_VERSION=2, HISTORY_STORE="histories", DRAFT_STORE="drafts";
+const DB_NAME="junkai_inspection_db", DB_VERSION=3, HISTORY_STORE="histories", DRAFT_STORE="drafts", PHOTO_STORE="photos";
 let _dbPromise=null;
 function openJunkaiDB(){
  if(_dbPromise)return _dbPromise;
  _dbPromise=new Promise((resolve,reject)=>{
   let req=indexedDB.open(DB_NAME,DB_VERSION);
-  req.onupgradeneeded=()=>{let db=req.result;if(!db.objectStoreNames.contains(HISTORY_STORE)){let st=db.createObjectStore(HISTORY_STORE,{keyPath:"id"});st.createIndex("propertyId","property.id",{unique:false});st.createIndex("date","date",{unique:false})}if(!db.objectStoreNames.contains(DRAFT_STORE))db.createObjectStore(DRAFT_STORE,{keyPath:"key"})};
+  req.onupgradeneeded=()=>{let db=req.result;if(!db.objectStoreNames.contains(HISTORY_STORE)){let st=db.createObjectStore(HISTORY_STORE,{keyPath:"id"});st.createIndex("propertyId","property.id",{unique:false});st.createIndex("date","date",{unique:false})}if(!db.objectStoreNames.contains(DRAFT_STORE))db.createObjectStore(DRAFT_STORE,{keyPath:"key"});if(!db.objectStoreNames.contains(PHOTO_STORE))db.createObjectStore(PHOTO_STORE,{keyPath:"id"})};
   req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
  });
  return _dbPromise;
@@ -577,13 +577,33 @@ function openJunkaiDB(){
 const DRAFT_META_KEY="inspection_draft_meta";
 let _draftSaveTimer=null;
 function todayISODate(){let d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
+function newPhotoId(){return "p_"+Date.now()+"_"+Math.random().toString(36).slice(2,10)}
+function cloneJSON(v){return JSON.parse(JSON.stringify(v))}
+async function putPhotoData(data,id){
+ if(!data)return id||null;let db=await openJunkaiDB(),pid=id||newPhotoId();
+ await new Promise((resolve,reject)=>{let tx=db.transaction(PHOTO_STORE,"readwrite");tx.objectStore(PHOTO_STORE).put({id:pid,data,updatedAt:new Date().toISOString()});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error("写真保存が中断されました"))});return pid;
+}
+async function getPhotoData(id){if(!id)return "";let db=await openJunkaiDB();return await new Promise((resolve,reject)=>{let r=db.transaction(PHOTO_STORE,"readonly").objectStore(PHOTO_STORE).get(String(id));r.onsuccess=()=>resolve(r.result?.data||"");r.onerror=()=>reject(r.error)})}
+async function deletePhotoData(id){if(!id)return;let db=await openJunkaiDB();await new Promise((resolve,reject)=>{let tx=db.transaction(PHOTO_STORE,"readwrite");tx.objectStore(PHOTO_STORE).delete(String(id));tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}
+function photoObjects(obj){let out=[];(obj?.categories||[]).forEach(c=>{(c.representativePhotos||[]).forEach(p=>out.push(p));(c.items||[]).forEach(i=>(i.photos||[]).forEach(p=>out.push(p))) });return out}
+async function externalizePhotos(obj){
+ let copy=cloneJSON(obj);let originals=photoObjects(obj),targets=photoObjects(copy);
+ for(let i=0;i<targets.length;i++){let src=originals[i]||{},t=targets[i];let data=src.data||src.src||"";let pid=src.photoId||t.photoId||null;if(data)pid=await putPhotoData(data,pid);t.photoId=pid;delete t.data;delete t.src}
+ return copy;
+}
+async function hydratePhotos(obj){
+ if(!obj)return obj;let copy=cloneJSON(obj),targets=photoObjects(copy);
+ for(const p of targets){if(!p.data&&p.photoId){try{p.data=await getPhotoData(p.photoId)}catch(_){p.data=""}}}
+ return copy;
+}
+async function deletePhotosForObject(obj){for(const p of photoObjects(obj||{})){if(p.photoId)try{await deletePhotoData(p.photoId)}catch(_){}}}
 async function putDraftRecord(d){
- if(!d)return; let db=await openJunkaiDB();
- let key=String(d.id||("d_"+Date.now()));d.id=key;
- await new Promise((resolve,reject)=>{let tx=db.transaction(DRAFT_STORE,"readwrite");tx.objectStore(DRAFT_STORE).put({key,draft:d,updatedAt:new Date().toISOString()});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+ if(!d)return;let db=await openJunkaiDB();let key=String(d.id||("d_"+Date.now()));d.id=key;
+ let light=await externalizePhotos(d);
+ await new Promise((resolve,reject)=>{let tx=db.transaction(DRAFT_STORE,"readwrite");tx.objectStore(DRAFT_STORE).put({key,draft:light,updatedAt:new Date().toISOString()});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error("下書き保存が中断されました"))});
 }
 async function getDraftRecord(id){
- let db=await openJunkaiDB(); return await new Promise((resolve,reject)=>{let r=db.transaction(DRAFT_STORE,"readonly").objectStore(DRAFT_STORE).get(String(id));r.onsuccess=()=>resolve(r.result?.draft||null);r.onerror=()=>reject(r.error)});
+ let db=await openJunkaiDB();let light=await new Promise((resolve,reject)=>{let r=db.transaction(DRAFT_STORE,"readonly").objectStore(DRAFT_STORE).get(String(id));r.onsuccess=()=>resolve(r.result?.draft||null);r.onerror=()=>reject(r.error)});return await hydratePhotos(light);
 }
 async function getAllDraftRecords(){
  let db=await openJunkaiDB();return await new Promise((resolve,reject)=>{let r=db.transaction(DRAFT_STORE,"readonly").objectStore(DRAFT_STORE).getAll();r.onsuccess=()=>resolve((r.result||[]).map(x=>x.draft).filter(Boolean));r.onerror=()=>reject(r.error)});
@@ -627,16 +647,16 @@ async function migrateLegacyHistories(){
 async function histories(){
  await migrateLegacyHistories();
  let db=await openJunkaiDB();
- return await new Promise((resolve,reject)=>{let r=db.transaction(HISTORY_STORE,"readonly").objectStore(HISTORY_STORE).getAll();r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error)});
+ let rows=await new Promise((resolve,reject)=>{let r=db.transaction(HISTORY_STORE,"readonly").objectStore(HISTORY_STORE).getAll();r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error)});return await Promise.all(rows.map(h=>hydratePhotos(h)));
 }
 async function saveHistoryRecord(snap){
  await migrateLegacyHistories();let db=await openJunkaiDB();
  let all=await histories(),same=all.find(v=>v.property?.id===snap.property.id&&normalizeHistoryDate(v.date)===normalizeHistoryDate(snap.date));
  if(same)snap.id=same.id;
- return await new Promise((resolve,reject)=>{let tx=db.transaction(HISTORY_STORE,"readwrite");tx.objectStore(HISTORY_STORE).put(snap);tx.oncomplete=()=>resolve(snap);tx.onerror=()=>reject(tx.error)});
+ let light=await externalizePhotos(snap);return await new Promise((resolve,reject)=>{let tx=db.transaction(HISTORY_STORE,"readwrite");tx.objectStore(HISTORY_STORE).put(light);tx.oncomplete=()=>resolve(snap);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error("履歴保存が中断されました"))});
 }
 async function deleteHistoryRecord(id){
- let db=await openJunkaiDB();return await new Promise((resolve,reject)=>{let tx=db.transaction(HISTORY_STORE,"readwrite");tx.objectStore(HISTORY_STORE).delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+ let db=await openJunkaiDB();let raw=await new Promise((resolve,reject)=>{let r=db.transaction(HISTORY_STORE,"readonly").objectStore(HISTORY_STORE).get(id);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error)});if(raw)await deletePhotosForObject(raw);return await new Promise((resolve,reject)=>{let tx=db.transaction(HISTORY_STORE,"readwrite");tx.objectStore(HISTORY_STORE).delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
 }
 function itemComment(cat,item){
   return (item.photos||[]).map(p=>p.comment||"").find(Boolean) || cat.comment || "";
@@ -664,7 +684,7 @@ function snapshotDraft(){
  });
  return {
   id:"h_"+Date.now(), property:{...draft.property}, date:draft.date, inspector:draft.inspector||getInspectorName()||"",
-  storageMeta:{photoCount,photoBytes,recordedAt:new Date().toISOString(),version:"1.11.3"},
+  storageMeta:{photoCount,photoBytes,recordedAt:new Date().toISOString(),version:"1.12.0"},
   overall:draft.overall||"", startedAt:draft.startedAt||"", completedAt:new Date().toISOString(), savedAt:new Date().toISOString(),
   categories:draft.categories.map(c=>({name:c.name,comment:c.comment||"",notApplicable:!!c.notApplicable,representativePhotos:(c.representativePhotos||[]).map(ph=>({data:ph.data||ph.src||ph,monthlyCandidate:true})),items:c.items.map(i=>({
     name:i.name,status:i.status||"",comment:i.comment||"",photos:(i.photos||[]).map(p=>({data:p.data,comment:p.comment||"",monthlyCandidate:!!p.monthlyCandidate}))
@@ -672,21 +692,14 @@ function snapshotDraft(){
  };
 }
 async function saveCurrentInspection(){
- // V1.11.3: 完了時は「下書き削除→履歴保存」の順で同一IndexedDBトランザクション内に実行する。
- // 写真入り下書きと写真入り履歴が同時に残って容量を二重消費するのを防ぐ。
+ // V1.12.0: 写真本体は PHOTO_STORE に1枚ずつ保存し、履歴には写真IDだけを保持する。
  draft.completedAt=new Date().toISOString();let snap=snapshotDraft();snap.date=normalizeHistoryDate(snap.date);
- await migrateLegacyHistories();
- let db=await openJunkaiDB();
- let all=await histories(),same=all.find(v=>v.property?.id===snap.property.id&&normalizeHistoryDate(v.date)===normalizeHistoryDate(snap.date));
- if(same)snap.id=same.id;
- await new Promise((resolve,reject)=>{
-   let tx=db.transaction([HISTORY_STORE,DRAFT_STORE],"readwrite");
-   // Quota対策: 先に写真入り下書きを削除し、その後に履歴を保存する。
-   // 同一トランザクションなので履歴保存に失敗した場合は削除もロールバックされる。
-   if(draft?.id)tx.objectStore(DRAFT_STORE).delete(String(draft.id));
-   tx.objectStore(HISTORY_STORE).put(snap);
-   tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error("保存処理が中断されました"));
- });
+ await migrateLegacyHistories();let db=await openJunkaiDB();
+ // 先に写真を個別保存。巨大な巡回オブジェクトを複製しない。
+ let light=await externalizePhotos(snap);
+ // 同日同物件の既存履歴IDを軽量カーソルで確認
+ let sameId=null;await new Promise((resolve,reject)=>{let tx=db.transaction(HISTORY_STORE,"readonly"),req=tx.objectStore(HISTORY_STORE).openCursor();req.onerror=()=>reject(req.error);req.onsuccess=()=>{let c=req.result;if(!c){resolve();return}let h=c.value;if(h.property?.id===light.property.id&&normalizeHistoryDate(h.date)===normalizeHistoryDate(light.date)){sameId=h.id;resolve();return}c.continue()}});if(sameId)light.id=sameId;
+ await new Promise((resolve,reject)=>{let tx=db.transaction([HISTORY_STORE,DRAFT_STORE],"readwrite");if(draft?.id)tx.objectStore(DRAFT_STORE).delete(String(draft.id));tx.objectStore(HISTORY_STORE).put(light);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error("履歴確定が中断されました"))});
  return snap;
 }
 async function saveInspectionDataOnly(){
@@ -708,7 +721,7 @@ async function validateAndSaveInspection(){
    return false;
  }
  saveDraft();
- try{await saveCurrentInspection()}catch(e){alert("巡回履歴をiPhone内に保存できませんでした。空き容量をご確認ください。");return false}
+ try{await saveCurrentInspection()}catch(e){console.error(e);let n=e?.name||"Error",m=e?.message||"詳細不明";alert(`点検データを保存できませんでした。\n処理：巡回履歴の確定\nエラー：${n}\n${m}\n\nこの表示をスクリーンショットしてください。`);return false}
  return true;
 }
 async function validatedSharePDF(){
@@ -820,12 +833,12 @@ async function renderDetailedStorageManager(){
 }
 async function resetStorageConnection(){try{if(_dbPromise){let db=await _dbPromise;db.close()}_dbPromise=null}catch(_) {_dbPromise=null}await renderStorageManager()}
 async function putHistoryRaw(h){
- let db=await openJunkaiDB();return await new Promise((resolve,reject)=>{let tx=db.transaction(HISTORY_STORE,"readwrite");tx.objectStore(HISTORY_STORE).put(h);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+ let db=await openJunkaiDB(),light=await externalizePhotos(h);return await new Promise((resolve,reject)=>{let tx=db.transaction(HISTORY_STORE,"readwrite");tx.objectStore(HISTORY_STORE).put(light);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
 }
 async function deleteMonthPhotos(ym){
  if(!confirm(`${ym.replace("-","年")}月の保存済み巡回から写真だけ削除します。\n○△×－・コメント・巡回履歴は残ります。\n\nPCへの書き出しや月次PDF作成が済んでいることを確認してください。`))return;
  let hs=await histories(),targets=hs.filter(h=>normalizeHistoryDate(h.date).slice(0,7)===ym);
- for(const h of targets){(h.categories||[]).forEach(c=>{c.representativePhotos=[];(c.items||[]).forEach(i=>i.photos=[])});await putHistoryRaw(h)}
+ for(const h of targets){await deletePhotosForObject(h);(h.categories||[]).forEach(c=>{c.representativePhotos=[];(c.items||[]).forEach(i=>i.photos=[])});await putHistoryRaw(h)}
  await renderStorageManager();alert("写真データを削除しました。点検結果とコメントは残っています。");
 }
 async function deleteMonthData(ym){
@@ -836,7 +849,7 @@ async function deleteMonthData(ym){
 async function deleteAllInspectionTestData(){
  if(!confirm("保存済み巡回履歴・写真・作業中の巡回データをすべて削除します。\n物件マスターは残ります。\n\nテスト中のデータを消してよろしいですか？"))return;
  try{
-  let db=await openJunkaiDB();await new Promise((resolve,reject)=>{let tx=db.transaction([HISTORY_STORE,DRAFT_STORE],"readwrite");tx.objectStore(HISTORY_STORE).clear();tx.objectStore(DRAFT_STORE).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+  let db=await openJunkaiDB();await new Promise((resolve,reject)=>{let tx=db.transaction([HISTORY_STORE,DRAFT_STORE,PHOTO_STORE],"readwrite");tx.objectStore(HISTORY_STORE).clear();tx.objectStore(DRAFT_STORE).clear();tx.objectStore(PHOTO_STORE).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
   await clearAllDrafts();localStorage.removeItem(HISTORY_KEY);draft=null;await updateDraftInfo();await renderStorageManager();alert("巡回テストデータを削除しました。物件マスターは残っています。");
  }catch(e){alert("削除できませんでした。もう一度お試しください。");}
 }
@@ -1218,7 +1231,7 @@ async function previewPDF(){
  }
 }
 
-async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.11.3");await updateDraftInfo();}
+async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.12.0");await updateDraftInfo();}
 async function resumeDraft(id){try{if(draft&&String(draft.id)!==String(id))await putDraftRecord(draft);let d=await getDraftRecord(id);if(!d)return;draft=d;current=0;sections("inspection");renderCategory()}catch(e){alert("保存中の巡回データを読み込めませんでした。もう一度お試しください。");}}
 function saveDraft(){
  if(!draft)return;
@@ -1240,7 +1253,7 @@ async function refreshDraftInfo(){await migrateLegacyDraftToIDB();await cleanupC
 window.addEventListener("pagehide",()=>{if(draft)putDraftRecord(draft).catch(()=>{})});
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 refreshDraftInfo();syncInspectorInput();let _dateEl=document.getElementById("homeInspectionDate");if(_dateEl&&!_dateEl.value)_dateEl.value=todayISODate();
-if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1113",{updateViaCache:"none"}).catch(()=>{}));}
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1120",{updateViaCache:"none"}).catch(()=>{}));}
 </script>
 
 <script>
