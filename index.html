@@ -70,15 +70,15 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="brand">PROPERTY INSPECTION · V1.11.0</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.11.0</div></header>
+<header class="top"><div class="brand">PROPERTY INSPECTION · V1.11.1</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.11.1</div></header>
 <main>
 <section id="home">
  <div class="home-dashboard">
   <div class="home-group">
    <div class="home-group-title">🏢 巡回点検</div><div class="home-group-desc">現場での巡回・保存済み履歴</div>
-   <div class="inspector-row"><label>点検者</label><input id="homeInspector" placeholder="例：藤澤" oninput="saveInspectorName(this.value)"></div>
+   <div class="inspector-row"><label>点検者</label><input id="homeInspector" placeholder="例：藤澤" oninput="saveInspectorName(this.value)"></div><div class="inspector-row"><label>巡回日</label><input id="homeInspectionDate" type="date"></div>
    <button class="primary home-action" onclick="showProperties()">巡回点検を開始</button>
-   <div class="card" id="draftCard"><div class="property"><div><b>保存中の巡回</b><small id="draftInfo">現在、作業中の巡回はありません</small></div><button class="smallbtn" id="resumeBtn" onclick="resumeDraft()" style="display:none">再開</button></div></div>
+   <div class="card" id="draftCard"><b>保存中の巡回</b><div id="draftList"><small id="draftInfo">現在、作業中の巡回はありません</small></div></div>
    <button class="secondary home-action" onclick="showSavedHistory()">保存済み巡回履歴</button>
   </div>
   <div class="home-group">
@@ -215,7 +215,7 @@ async function exportInspectionBackup(){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.11.0");
+ title("巡回点検","iPhone・iPad 現場点検 V1.11.1");
  updateHome();
  refreshDraftInfo();
  syncInspectorInput();
@@ -279,13 +279,17 @@ function deleteProperty(id){
  if(!confirm(`「${p.name}」を物件一覧から削除しますか？\n過去の巡回履歴は削除しません。`))return;
  localStorage.setItem("inspection_properties",JSON.stringify(props().filter(x=>x.id!==id)));renderProperties(document.getElementById("propertySearch")?.value||"");
 }
-function startInspection(id){
+async function startInspection(id){
  let p=props().find(x=>x.id===id);if(!p)return;
+ // 別物件へ移る前に、現在の巡回を必ず独立した下書きとして保存する
+ if(draft){try{await putDraftRecord(draft)}catch(e){alert("現在の巡回を保存できませんでした。新しい巡回は開始しません。");return}}
  let inspector=getInspectorName();
  if(!inspector){inspector=(prompt("点検者名を入力してください")||"").trim();if(!inspector)return;saveInspectorName(inspector);syncInspectorInput()}
+ let dateInput=document.getElementById("homeInspectionDate");
+ let inspectionDate=dateInput?.value||todayISODate();
  let excluded=new Set(p?.excludedCategories||[]);
- draft={id:Date.now().toString(),property:p,inspector,startedAt:new Date().toISOString(),date:(()=>{let d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`})(),categories:CATEGORIES.map(c=>{let na=excluded.has(c.name);return {name:c.name,comment:"",notApplicable:na,representativePhotos:[],items:c.items.map(i=>({name:i,status:na?"－":"",comment:"",photos:[]}))}}),overall:""};
- current=0;saveDraft();sections("inspection");renderCategory();
+ draft={id:"d_"+Date.now()+"_"+Math.random().toString(36).slice(2,8),property:p,inspector,startedAt:new Date().toISOString(),date:inspectionDate,categories:CATEGORIES.map(c=>{let na=excluded.has(c.name);return {name:c.name,comment:"",notApplicable:na,representativePhotos:[],items:c.items.map(i=>({name:i,status:na?"－":"",comment:"",photos:[]}))}}),overall:""};
+ current=0;await putDraftRecord(draft);await updateDraftInfo();sections("inspection");renderCategory();
 }
 
 function moveCategory(delta){
@@ -572,22 +576,33 @@ function openJunkaiDB(){
 }
 const DRAFT_META_KEY="inspection_draft_meta";
 let _draftSaveTimer=null;
+function todayISODate(){let d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 async function putDraftRecord(d){
  if(!d)return; let db=await openJunkaiDB();
- await new Promise((resolve,reject)=>{let tx=db.transaction(DRAFT_STORE,"readwrite");tx.objectStore(DRAFT_STORE).put({key:"current",draft:d,updatedAt:new Date().toISOString()});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
- localStorage.setItem(DRAFT_META_KEY,JSON.stringify({id:d.id,propertyName:d.property?.name||"",propertyId:d.property?.id||"",date:d.date||"",updatedAt:new Date().toISOString()}));
+ let key=String(d.id||("d_"+Date.now()));d.id=key;
+ await new Promise((resolve,reject)=>{let tx=db.transaction(DRAFT_STORE,"readwrite");tx.objectStore(DRAFT_STORE).put({key,draft:d,updatedAt:new Date().toISOString()});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
 }
-async function getDraftRecord(){
- let db=await openJunkaiDB(); return await new Promise((resolve,reject)=>{let r=db.transaction(DRAFT_STORE,"readonly").objectStore(DRAFT_STORE).get("current");r.onsuccess=()=>resolve(r.result?.draft||null);r.onerror=()=>reject(r.error)});
+async function getDraftRecord(id){
+ let db=await openJunkaiDB(); return await new Promise((resolve,reject)=>{let r=db.transaction(DRAFT_STORE,"readonly").objectStore(DRAFT_STORE).get(String(id));r.onsuccess=()=>resolve(r.result?.draft||null);r.onerror=()=>reject(r.error)});
 }
-async function clearDraftStorage(){
+async function getAllDraftRecords(){
+ let db=await openJunkaiDB();return await new Promise((resolve,reject)=>{let r=db.transaction(DRAFT_STORE,"readonly").objectStore(DRAFT_STORE).getAll();r.onsuccess=()=>resolve((r.result||[]).map(x=>x.draft).filter(Boolean));r.onerror=()=>reject(r.error)});
+}
+async function clearDraftStorage(id){
  if(_draftSaveTimer){clearTimeout(_draftSaveTimer);_draftSaveTimer=null;}
- try{let db=await openJunkaiDB();await new Promise((resolve,reject)=>{let tx=db.transaction(DRAFT_STORE,"readwrite");tx.objectStore(DRAFT_STORE).delete("current");tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}catch(_){}
+ let target=id||draft?.id;if(!target)return;
+ try{let db=await openJunkaiDB();await new Promise((resolve,reject)=>{let tx=db.transaction(DRAFT_STORE,"readwrite");tx.objectStore(DRAFT_STORE).delete(String(target));tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}catch(_){}
+}
+async function clearAllDrafts(){
+ if(_draftSaveTimer){clearTimeout(_draftSaveTimer);_draftSaveTimer=null;}
+ try{let db=await openJunkaiDB();await new Promise((resolve,reject)=>{let tx=db.transaction(DRAFT_STORE,"readwrite");tx.objectStore(DRAFT_STORE).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}catch(_){}
  localStorage.removeItem(DRAFT_META_KEY);localStorage.removeItem("inspection_draft");
 }
 async function migrateLegacyDraftToIDB(){
- let raw=localStorage.getItem("inspection_draft");if(!raw)return;
- try{let d=JSON.parse(raw);if(d){await putDraftRecord(d);localStorage.removeItem("inspection_draft")}}catch(_){localStorage.removeItem("inspection_draft")}
+ // V1.11.0 の key=current を複数下書き形式へ移行
+ try{let db=await openJunkaiDB();let old=await new Promise((resolve,reject)=>{let r=db.transaction(DRAFT_STORE,"readonly").objectStore(DRAFT_STORE).get("current");r.onsuccess=()=>resolve(r.result?.draft||null);r.onerror=()=>reject(r.error)});if(old){old.id=old.id||("d_"+Date.now());await putDraftRecord(old);await new Promise((resolve,reject)=>{let tx=db.transaction(DRAFT_STORE,"readwrite");tx.objectStore(DRAFT_STORE).delete("current");tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}}catch(_){}
+ let raw=localStorage.getItem("inspection_draft");if(raw){try{let d=JSON.parse(raw);if(d){d.id=d.id||("d_"+Date.now());await putDraftRecord(d)}}catch(_){}localStorage.removeItem("inspection_draft")}
+ localStorage.removeItem(DRAFT_META_KEY);
 }
 function normalizeHistoryDate(v){
  let m=String(v||"").match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
@@ -802,7 +817,7 @@ async function deleteAllInspectionTestData(){
  if(!confirm("保存済み巡回履歴・写真・作業中の巡回データをすべて削除します。\n物件マスターは残ります。\n\nテスト中のデータを消してよろしいですか？"))return;
  try{
   let db=await openJunkaiDB();await new Promise((resolve,reject)=>{let tx=db.transaction([HISTORY_STORE,DRAFT_STORE],"readwrite");tx.objectStore(HISTORY_STORE).clear();tx.objectStore(DRAFT_STORE).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
-  localStorage.removeItem("inspection_draft");localStorage.removeItem(DRAFT_META_KEY);localStorage.removeItem(HISTORY_KEY);draft=null;updateDraftInfo();await renderStorageManager();alert("巡回テストデータを削除しました。物件マスターは残っています。");
+  await clearAllDrafts();localStorage.removeItem(HISTORY_KEY);draft=null;await updateDraftInfo();await renderStorageManager();alert("巡回テストデータを削除しました。物件マスターは残っています。");
  }catch(e){alert("削除できませんでした。もう一度お試しください。");}
 }
 function escapeHtml(t){return String(t||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
@@ -1183,24 +1198,29 @@ async function previewPDF(){
  }
 }
 
-async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;await clearDraftStorage();draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.11.0");updateDraftInfo();}
-async function resumeDraft(){try{let d=await getDraftRecord();if(!d)return;draft=d;current=0;sections("inspection");renderCategory()}catch(e){alert("保存中の巡回データを読み込めませんでした。もう一度お試しください。");}}
+async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.11.1");await updateDraftInfo();}
+async function resumeDraft(id){try{if(draft&&String(draft.id)!==String(id))await putDraftRecord(draft);let d=await getDraftRecord(id);if(!d)return;draft=d;current=0;sections("inspection");renderCategory()}catch(e){alert("保存中の巡回データを読み込めませんでした。もう一度お試しください。");}}
 function saveDraft(){
  if(!draft)return;
- localStorage.setItem(DRAFT_META_KEY,JSON.stringify({id:draft.id,propertyName:draft.property?.name||"",propertyId:draft.property?.id||"",date:draft.date||"",updatedAt:new Date().toISOString()}));
  updateDraftInfo();
  if(_draftSaveTimer)clearTimeout(_draftSaveTimer);
- _draftSaveTimer=setTimeout(async()=>{_draftSaveTimer=null;try{await putDraftRecord(draft)}catch(e){alert("巡回データを保存できませんでした。端末の空き容量をご確認ください。")}},350);
+ let copy=draft;_draftSaveTimer=setTimeout(async()=>{_draftSaveTimer=null;try{await putDraftRecord(copy);await updateDraftInfo()}catch(e){alert("巡回データを保存できませんでした。端末の空き容量をご確認ください。")}},250);
 }
 async function cleanupCompletedDraft(){
- try{let d=await getDraftRecord();if(!d){localStorage.removeItem(DRAFT_META_KEY);return}let hs=await histories();let done=hs.some(h=>String(h.property?.id)===String(d.property?.id)&&normalizeHistoryDate(h.date)===normalizeHistoryDate(d.date));if(done){await clearDraftStorage();if(draft&&String(draft.id)===String(d.id))draft=null}}catch(_){}
+ try{let ds=await getAllDraftRecords(),hs=await histories();for(const d of ds){let done=hs.some(h=>String(h.id||"")===String(d.savedHistoryId||""));if(done)await clearDraftStorage(d.id)}}catch(_){}
 }
-function updateDraftInfo(){let m=null;try{m=JSON.parse(localStorage.getItem(DRAFT_META_KEY)||"null")}catch(_){localStorage.removeItem(DRAFT_META_KEY)}draftInfo.textContent=m?`${m.propertyName} / ${m.date} の巡回データがあります`:"現在、作業中の巡回はありません";let b=document.getElementById("resumeBtn");if(b)b.style.display=m?"block":"none"}
-async function refreshDraftInfo(){await migrateLegacyDraftToIDB();await cleanupCompletedDraft();updateDraftInfo()}
+function draftProgress(d){let all=0,done=0;(d.categories||[]).forEach(c=>(c.items||[]).forEach(i=>{all++;if(i.status)done++}));return `${done}/${all}`}
+async function updateDraftInfo(){
+ let el=document.getElementById("draftList");if(!el)return;
+ try{let ds=await getAllDraftRecords();ds.sort((a,b)=>String(b.startedAt||"").localeCompare(String(a.startedAt||"")));if(!ds.length){el.innerHTML='<small id="draftInfo">現在、作業中の巡回はありません</small>';return}
+ el.innerHTML=ds.map(d=>`<div class="property" style="padding:10px 0;border-top:1px solid #edf0f4"><div><b>${esc(d.property?.name||"")}</b><small>${esc(d.date||"")}　進捗 ${draftProgress(d)}　点検者：${esc(d.inspector||"未入力")}</small></div><button class="smallbtn" onclick="resumeDraft('${esc(d.id)}')">再開</button></div>`).join("");
+ }catch(e){el.innerHTML='<small>保存中の巡回を読み込めませんでした。</small>'}
+}
+async function refreshDraftInfo(){await migrateLegacyDraftToIDB();await cleanupCompletedDraft();await updateDraftInfo()}
 window.addEventListener("pagehide",()=>{if(draft)putDraftRecord(draft).catch(()=>{})});
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-refreshDraftInfo();syncInspectorInput();
-if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1110",{updateViaCache:"none"}).catch(()=>{}));}
+refreshDraftInfo();syncInspectorInput();let _dateEl=document.getElementById("homeInspectionDate");if(_dateEl&&!_dateEl.value)_dateEl.value=todayISODate();
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1111",{updateViaCache:"none"}).catch(()=>{}));}
 </script>
 
 <script>
