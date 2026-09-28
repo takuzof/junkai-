@@ -70,7 +70,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="brand">PROPERTY INSPECTION · V1.12.0</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.12.0</div></header>
+<header class="top"><div class="brand">PROPERTY INSPECTION · V1.12.1</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.12.1</div></header>
 <main>
 <section id="home">
  <div class="home-dashboard">
@@ -215,7 +215,7 @@ async function exportInspectionBackup(){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.12.0");
+ title("巡回点検","iPhone・iPad 現場点検 V1.12.1");
  updateHome();
  refreshDraftInfo();
  syncInspectorInput();
@@ -684,7 +684,7 @@ function snapshotDraft(){
  });
  return {
   id:"h_"+Date.now(), property:{...draft.property}, date:draft.date, inspector:draft.inspector||getInspectorName()||"",
-  storageMeta:{photoCount,photoBytes,recordedAt:new Date().toISOString(),version:"1.12.0"},
+  storageMeta:{photoCount,photoBytes,recordedAt:new Date().toISOString(),version:"1.12.1"},
   overall:draft.overall||"", startedAt:draft.startedAt||"", completedAt:new Date().toISOString(), savedAt:new Date().toISOString(),
   categories:draft.categories.map(c=>({name:c.name,comment:c.comment||"",notApplicable:!!c.notApplicable,representativePhotos:(c.representativePhotos||[]).map(ph=>({data:ph.data||ph.src||ph,monthlyCandidate:true})),items:c.items.map(i=>({
     name:i.name,status:i.status||"",comment:i.comment||"",photos:(i.photos||[]).map(p=>({data:p.data,comment:p.comment||"",monthlyCandidate:!!p.monthlyCandidate}))
@@ -692,7 +692,7 @@ function snapshotDraft(){
  };
 }
 async function saveCurrentInspection(){
- // V1.12.0: 写真本体は PHOTO_STORE に1枚ずつ保存し、履歴には写真IDだけを保持する。
+ // V1.12.1: 写真本体は PHOTO_STORE に1枚ずつ保存し、履歴には写真IDだけを保持する。
  draft.completedAt=new Date().toISOString();let snap=snapshotDraft();snap.date=normalizeHistoryDate(snap.date);
  await migrateLegacyHistories();let db=await openJunkaiDB();
  // 先に写真を個別保存。巨大な巡回オブジェクトを複製しない。
@@ -1183,11 +1183,12 @@ async function buildReportCanvases(){
  }
  return pages;
 }
-function dataUrlBytes(url){
+function dataUrlToUint8Array(url){
+ if(typeof url!=="string" || !url.includes(",")) throw new TypeError("PDF画像データの形式が不正です");
  let b=atob(url.split(",")[1]),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;
 }
 function makeImagePDF(canvases){
- let imgs=canvases.map(c=>dataUrlBytes(c.toDataURL("image/jpeg",0.84)));
+ let imgs=canvases.map(c=>dataUrlToUint8Array(c.toDataURL("image/jpeg",0.84)));
  let parts=[],offsets=[0],len=0; const enc=new TextEncoder();
  function add(v){let u=typeof v==="string"?enc.encode(v):v;parts.push(u);len+=u.length}
  function obj(n,body){offsets[n]=len;add(`${n} 0 obj\n${body}\nendobj\n`)}
@@ -1231,7 +1232,7 @@ async function previewPDF(){
  }
 }
 
-async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.12.0");await updateDraftInfo();}
+async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.12.1");await updateDraftInfo();}
 async function resumeDraft(id){try{if(draft&&String(draft.id)!==String(id))await putDraftRecord(draft);let d=await getDraftRecord(id);if(!d)return;draft=d;current=0;sections("inspection");renderCategory()}catch(e){alert("保存中の巡回データを読み込めませんでした。もう一度お試しください。");}}
 function saveDraft(){
  if(!draft)return;

@@ -1,4 +1,4 @@
-const CACHE="junkai-v1120";
+const CACHE="junkai-v1121";
 self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(["./index.html","./manifest.webmanifest","./icon.svg"])))});
 self.addEventListener("activate",e=>e.waitUntil((async()=>{for(const k of await caches.keys())if(k!==CACHE)await caches.delete(k);await self.clients.claim()})()));
 self.addEventListener("fetch",e=>{
