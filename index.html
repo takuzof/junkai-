@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>巡回点検</title>
+<title>A-CHECK｜巡回点検</title>
 <meta name="theme-color" content="#f3f6f9">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.svg">
@@ -66,11 +66,30 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 .home-group .card{box-shadow:none;margin:8px 0 0;border-radius:13px;padding:12px}
 .inspector-row{display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:10px}.inspector-row label{margin:0}
 @media(min-width:700px){.home-dashboard{display:grid;grid-template-columns:1fr 1fr;gap:14px}.home-group{margin-bottom:0}}
+
+/* Series visual theme V1.13.2: application UI only. */
+:root{--navy:#61429a;--blue:#8261bc;--bg:#fff;--text:#302b3b;--muted:#797286;--line:#e5dfec}
+body{background:#fff}.app{max-width:1080px}
+.top{position:relative;overflow:hidden;display:flex;align-items:center;gap:15px;min-height:86px;padding:calc(15px + env(safe-area-inset-top)) 24px 15px;background:linear-gradient(103deg,#624199 0%,#805bb4 35%,#a17bce 68%,#c5aae6 100%);border:0;color:#fff}
+.top::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(125deg,transparent 0,transparent 80px,rgba(255,255,255,.045) 81px,rgba(255,255,255,.045) 82px)}
+.series-icon{flex:0 0 45px;width:45px;height:45px;padding:8px;border:1px solid #ffffff70;border-radius:11px;background:#ffffff12;color:#fff;z-index:1}
+.header-copy{min-width:0;z-index:1}.brand{font-family:"Helvetica Neue","Segoe UI",Arial,sans-serif;font-size:23px;font-weight:300;letter-spacing:.19em;color:#fff;line-height:1.25}
+.top h1{font-size:11px;font-weight:400;letter-spacing:.13em;margin:5px 0 2px;color:#fff}.top .sub{font-size:10px;color:#ffffffe0;font-weight:400}
+.header-version{margin-left:auto;font-size:10px;letter-spacing:.08em;align-self:flex-start;padding-top:4px;white-space:nowrap;color:#ffffffe0;z-index:1}
+main{padding:22px 24px}.card,.home-group{border-color:#e8e2ef;border-radius:13px;box-shadow:0 3px 13px #61429a08}
+.home-group-title{font-size:16px;font-weight:600}.home-group-desc{line-height:1.7}.primary{background:var(--navy);font-weight:600;border-radius:10px}.secondary{font-weight:500;border-radius:10px}.primary:hover{background:#7251aa}.secondary:hover,.smallbtn:hover,.home-btn:hover{background:#f7f3fc}
+label,.item-head{font-weight:500}.category-title{font-weight:600}.smallbtn,.home-btn,.back-summary,.photo-add{font-weight:500}.list-title{font-weight:600}.property b,.card>b{font-weight:600}
+.pill,.badge{background:#f0eaf8;color:var(--navy);font-weight:500}.photo-add,.back-summary{background:#faf7fd;border-color:#d9cce9}.month-card h3{color:var(--navy)}.sort-handle{background:#faf7fd}.meta-chip{background:#f6f3f9}.progress{background:#eee7f5}
+input:focus,textarea:focus{outline:2px solid #ab8bcd;outline-offset:1px}.summary-link:active{background:#f4eefb}
+@media(max-width:699px){.top{padding-left:16px;padding-right:16px;gap:11px}.brand{font-size:19px;letter-spacing:.12em}.header-version{font-size:9px}main{padding:16px}.home-group{margin-bottom:13px}.series-icon{flex-basis:42px;width:42px;height:42px}}
+@media(max-width:359px){.brand{font-size:16px}.header-version{font-size:8px}.top{gap:8px}}
+.series-subtitle{font-size:9px;font-weight:400;letter-spacing:.18em;color:#ffffffe0;margin-top:4px}.top h1{margin-top:4px}.brand{font-size:27px;letter-spacing:.24em}@media(max-width:699px){.brand{font-size:25px}}
+#pageSub{display:none}
 </style>
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="brand">PROPERTY INSPECTION · V1.13.0</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.13.0</div></header>
+<header class="top"><svg class="series-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M11 6H7v23h18V6h-4"/><rect x="11" y="3" width="10" height="6" rx="2"/><path d="m11 16 3 3 7-7M11 24h10"/></svg><div class="header-copy"><div class="brand">A-CHECK</div><div class="series-subtitle">PROPERTY INSPECTION</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.13.2</div></div><div class="header-version">V1.13.2</div></header>
 <main>
 <section id="home">
  <div class="home-dashboard">
@@ -198,7 +217,7 @@ async function buildFullBackupPayload(){
  const hs=await histories();
  const ds=await getAllDraftRecords();
  const hydratedDrafts=[];for(const d of ds)hydratedDrafts.push(await hydratePhotos(d));
- return {type:"junkai-full-backup",version:2,appVersion:"1.13.0",exportedAt:new Date().toISOString(),properties:props(),histories:hs,drafts:hydratedDrafts};
+ return {type:"junkai-full-backup",version:2,appVersion:"1.13.2",exportedAt:new Date().toISOString(),properties:props(),histories:hs,drafts:hydratedDrafts};
 }
 async function exportInspectionBackup(){
  try{
@@ -232,7 +251,7 @@ async function importInspectionBackup(e){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.13.0");
+ title("巡回点検","iPhone・iPad 現場点検 V1.13.2");
  updateHome();
  refreshDraftInfo();
  syncInspectorInput();
@@ -682,7 +701,7 @@ async function deleteHistoryRecord(id){
  let db=await openJunkaiDB();let raw=await new Promise((resolve,reject)=>{let r=db.transaction(HISTORY_STORE,"readonly").objectStore(HISTORY_STORE).get(id);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error)});if(raw)await deletePhotosForObject(raw);return await new Promise((resolve,reject)=>{let tx=db.transaction(HISTORY_STORE,"readwrite");tx.objectStore(HISTORY_STORE).delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
 }
 function itemComment(cat,item){
-  // V1.13.0: 週次巡回で入力した「オーナー様向けコメント」を月次へ最優先で引き継ぐ。
+  // V1.13.2: 週次巡回で入力した「オーナー様向けコメント」を月次へ最優先で引き継ぐ。
   // 写真メモ・カテゴリーコメントは旧データ向けのフォールバックとしてのみ使用する。
   return (item?.comment||"").trim() || (item?.photos||[]).map(p=>(p.comment||"").trim()).find(Boolean) || (cat?.comment||"").trim() || "";
 }
@@ -717,7 +736,7 @@ function snapshotDraft(){
  };
 }
 async function saveCurrentInspection(){
- // V1.13.0: 写真本体は PHOTO_STORE に1枚ずつ保存し、履歴には写真IDだけを保持する。
+ // V1.13.2: 写真本体は PHOTO_STORE に1枚ずつ保存し、履歴には写真IDだけを保持する。
  draft.completedAt=new Date().toISOString();let snap=snapshotDraft();snap.date=normalizeHistoryDate(snap.date);
  await migrateLegacyHistories();let db=await openJunkaiDB();
  // 先に写真を個別保存。巨大な巡回オブジェクトを複製しない。
@@ -1346,7 +1365,7 @@ async function previewPDF(){
  }
 }
 
-async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.13.0");await updateDraftInfo();}
+async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.13.2");await updateDraftInfo();}
 async function resumeDraft(id){try{if(draft&&String(draft.id)!==String(id))await putDraftRecord(draft);let d=await getDraftRecord(id);if(!d)return;draft=d;current=0;sections("inspection");renderCategory()}catch(e){alert("保存中の巡回データを読み込めませんでした。もう一度お試しください。");}}
 function saveDraft(){
  if(!draft)return;

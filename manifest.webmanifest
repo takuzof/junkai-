@@ -1,10 +1,10 @@
 {
-  "name": "巡回点検 V1.13.0",
-  "short_name": "巡回点検",
+  "name": "A-CHECK 巡回点検 V1.13.2",
+  "short_name": "A-CHECK",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f3f6f9",
-  "theme_color": "#f3f6f9",
+  "background_color": "#ffffff",
+  "theme_color": "#805bb4",
   "icons": [
     {
       "src": "icon.svg",
