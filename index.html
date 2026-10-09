@@ -7,8 +7,13 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>A-CHECK｜巡回点検</title>
 <meta name="theme-color" content="#f3f6f9">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icon.svg">
+
+
+
+<link rel="icon" href="shortcut-favicon.ico?v=1133">
+<link rel="icon" type="image/png" sizes="32x32" href="shortcut-icon-32.png?v=1133">
+<link rel="apple-touch-icon" sizes="180x180" href="shortcut-apple-touch-icon.png?v=1133">
+<link rel="manifest" href="manifest.webmanifest?v=1133">
 <style>
 :root{--navy:#18365b;--blue:#2f5f92;--bg:#f3f6f9;--card:#fff;--text:#1d2939;--muted:#667085;--line:#d8e0e8;--ok:#26734d;--warn:#a06a12;--bad:#a23b3b}
 *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif}
@@ -67,7 +72,7 @@ label{display:block;font-size:13px;font-weight:700;margin:11px 0 6px;color:#4754
 .inspector-row{display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:10px}.inspector-row label{margin:0}
 @media(min-width:700px){.home-dashboard{display:grid;grid-template-columns:1fr 1fr;gap:14px}.home-group{margin-bottom:0}}
 
-/* Series visual theme V1.13.2: application UI only. */
+/* Series visual theme V1.13.3: application UI only. */
 :root{--navy:#61429a;--blue:#8261bc;--bg:#fff;--text:#302b3b;--muted:#797286;--line:#e5dfec}
 body{background:#fff}.app{max-width:1080px}
 .top{position:relative;overflow:hidden;display:flex;align-items:center;gap:15px;min-height:86px;padding:calc(15px + env(safe-area-inset-top)) 24px 15px;background:linear-gradient(103deg,#624199 0%,#805bb4 35%,#a17bce 68%,#c5aae6 100%);border:0;color:#fff}
@@ -89,7 +94,7 @@ input:focus,textarea:focus{outline:2px solid #ab8bcd;outline-offset:1px}.summary
 </head>
 <body>
 <div class="app">
-<header class="top"><svg class="series-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M11 6H7v23h18V6h-4"/><rect x="11" y="3" width="10" height="6" rx="2"/><path d="m11 16 3 3 7-7M11 24h10"/></svg><div class="header-copy"><div class="brand">A-CHECK</div><div class="series-subtitle">PROPERTY INSPECTION</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.13.2</div></div><div class="header-version">V1.13.2</div></header>
+<header class="top"><svg class="series-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M11 6H7v23h18V6h-4"/><rect x="11" y="3" width="10" height="6" rx="2"/><path d="m11 16 3 3 7-7M11 24h10"/></svg><div class="header-copy"><div class="brand">A-CHECK</div><div class="series-subtitle">PROPERTY INSPECTION</div><h1 id="pageTitle">巡回点検</h1><div class="sub" id="pageSub">iPhone・iPad 現場点検 V1.13.3</div></div><div class="header-version">V1.13.3</div></header>
 <main>
 <section id="home">
  <div class="home-dashboard">
@@ -217,7 +222,7 @@ async function buildFullBackupPayload(){
  const hs=await histories();
  const ds=await getAllDraftRecords();
  const hydratedDrafts=[];for(const d of ds)hydratedDrafts.push(await hydratePhotos(d));
- return {type:"junkai-full-backup",version:2,appVersion:"1.13.2",exportedAt:new Date().toISOString(),properties:props(),histories:hs,drafts:hydratedDrafts};
+ return {type:"junkai-full-backup",version:2,appVersion:"1.13.3",exportedAt:new Date().toISOString(),properties:props(),histories:hs,drafts:hydratedDrafts};
 }
 async function exportInspectionBackup(){
  try{
@@ -251,7 +256,7 @@ async function importInspectionBackup(e){
 function goHome(){
  if(draft) saveDraft();
  sections("home");
- title("巡回点検","iPhone・iPad 現場点検 V1.13.2");
+ title("巡回点検","iPhone・iPad 現場点検 V1.13.3");
  updateHome();
  refreshDraftInfo();
  syncInspectorInput();
@@ -701,7 +706,7 @@ async function deleteHistoryRecord(id){
  let db=await openJunkaiDB();let raw=await new Promise((resolve,reject)=>{let r=db.transaction(HISTORY_STORE,"readonly").objectStore(HISTORY_STORE).get(id);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error)});if(raw)await deletePhotosForObject(raw);return await new Promise((resolve,reject)=>{let tx=db.transaction(HISTORY_STORE,"readwrite");tx.objectStore(HISTORY_STORE).delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
 }
 function itemComment(cat,item){
-  // V1.13.2: 週次巡回で入力した「オーナー様向けコメント」を月次へ最優先で引き継ぐ。
+  // V1.13.3: 週次巡回で入力した「オーナー様向けコメント」を月次へ最優先で引き継ぐ。
   // 写真メモ・カテゴリーコメントは旧データ向けのフォールバックとしてのみ使用する。
   return (item?.comment||"").trim() || (item?.photos||[]).map(p=>(p.comment||"").trim()).find(Boolean) || (cat?.comment||"").trim() || "";
 }
@@ -736,7 +741,7 @@ function snapshotDraft(){
  };
 }
 async function saveCurrentInspection(){
- // V1.13.2: 写真本体は PHOTO_STORE に1枚ずつ保存し、履歴には写真IDだけを保持する。
+ // V1.13.3: 写真本体は PHOTO_STORE に1枚ずつ保存し、履歴には写真IDだけを保持する。
  draft.completedAt=new Date().toISOString();let snap=snapshotDraft();snap.date=normalizeHistoryDate(snap.date);
  await migrateLegacyHistories();let db=await openJunkaiDB();
  // 先に写真を個別保存。巨大な巡回オブジェクトを複製しない。
@@ -1365,7 +1370,7 @@ async function previewPDF(){
  }
 }
 
-async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.13.2");await updateDraftInfo();}
+async function discardCompleted(){if(!draft)return;if(!confirm("この巡回データと写真をiPhoneから削除しますか？\n会社への保存が済んでから実行してください。"))return;let id=draft.id;await clearDraftStorage(id);draft=null;sections("home");title("巡回点検","iPhone・iPad 現場点検 V1.13.3");await updateDraftInfo();}
 async function resumeDraft(id){try{if(draft&&String(draft.id)!==String(id))await putDraftRecord(draft);let d=await getDraftRecord(id);if(!d)return;draft=d;current=0;sections("inspection");renderCategory()}catch(e){alert("保存中の巡回データを読み込めませんでした。もう一度お試しください。");}}
 function saveDraft(){
  if(!draft)return;
@@ -1387,7 +1392,7 @@ async function refreshDraftInfo(){await migrateLegacyDraftToIDB();await cleanupC
 window.addEventListener("pagehide",()=>{if(draft)putDraftRecord(draft).catch(()=>{})});
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 refreshDraftInfo();syncInspectorInput();let _dateEl=document.getElementById("homeInspectionDate");if(_dateEl&&!_dateEl.value)_dateEl.value=todayISODate();
-if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1130",{updateViaCache:"none"}).catch(()=>{}));}
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js?v=1133",{updateViaCache:"none"}).catch(()=>{}));}
 </script>
 
 <script>
